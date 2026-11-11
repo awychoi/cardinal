@@ -27,11 +27,15 @@ describe("workbench lockup", () => {
     expect(svg).toMatch(/id="wordmark-dot"[^>]*fill="#C83C43"/);
   });
 
-  it.each(VARIANTS)("$name picks ink and beak for its surface", ({ svg, ink, beak }) => {
-    expect(svg).toContain(`id="wordmark" fill="${ink}"`);
-    expect(svg).toContain(`fill="${beak}" d="M644 289L829 362L644 428Z"`);
-    expect(svg).toContain('width="295.83" height="90"');
-  });
+  it.each(VARIANTS)(
+    "$name picks ink and beak for its surface at the workbench size",
+    ({ svg, ink, beak }) => {
+      expect(svg).toContain(`id="wordmark" fill="${ink}"`);
+      expect(svg).toContain(`fill="${beak}" d="M644 289L829 362L644 428Z"`);
+      expect(svg).toContain('width="221.87" height="67.5"');
+      expect(svg).toContain('viewBox="0 0 295.83 90"');
+    },
+  );
 
   it("ships different files for dark and light surfaces", () => {
     expect(dark).not.toBe(light);

@@ -14,9 +14,10 @@ lowercase serif **cardinal** wordmark, and the subline **Local-first Card Ledger
 | [`cardinal-lockup-board.png`](cardinal-lockup-board.png)                                          | Reference board: surfaces, palette, sizes           |
 | [`app-arcade-overview-dark.png`](../app-arcade-overview-dark.png)                                 | Workbench banner: Arcade theme, synthetic demo data |
 
-Both SVGs share the same `295.83 × 90` viewBox. The workbench card sets `max-height: 90px`, so
-the lockup is used at its native size. The subline becomes supporting texture below 90px; do not
-reduce the lockup below 72px.
+Both SVGs share the same `295.83 × 90` viewBox, but their intrinsic size is **`221.87 × 67.5`** —
+75% of the drawing. The workbench card only sets `max-height: 90px` and otherwise uses the intrinsic
+size, so the site displays the lockup 25% smaller than the 90-unit artwork. The subline is supporting
+texture at this size; if the panel is narrower, `max-width` scales it down further.
 
 ## One red i-dot
 

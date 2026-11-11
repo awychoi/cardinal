@@ -1,0 +1,80 @@
+[package]
+name = "cardinal"
+version = "0.1.0"
+description = "Cardinal - local-first card ledger"
+authors = ["awychoi"]
+license = "Apache-2.0"
+publish = false
+edition = "2021"
+rust-version = "1.82"
+default-run = "cardinal"
+
+[lib]
+name = "cardinal_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "cardinal"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "2.12.5", features = ["macos-private-api"] }
+tauri-plugin-single-instance = "2.5.4"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl", "backup"] }
+argon2 = "0.5.3"
+chacha20poly1305 = { version = "0.10.1", features = ["std"] }
+zeroize = { version = "1.8.1", features = ["derive"] }
+secrecy = "0.10.3"
+getrandom = "0.3.3"
+subtle = "2.6.1"
+sha2 = "0.10"
+hex = "0.4"
+rand = "0.9"
+libc = "0.2"
+rust_decimal = "1.43"
+regex = "1"
+unicode-normalization = "0.1"
+reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls", "charset", "blocking"] }
+security-framework = "3.5.1"
+security-framework-sys = "2.15"
+core-foundation = "0.10.1"
+core-foundation-sys = "0.8"
+rfd = "0.15.4"
+csv = "1.3"
+tokio = { version = "1.47", features = ["sync", "time", "macros", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+sha1 = "0.10"
+base64 = "0.22"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.5"
+objc2-foundation = { version = "0.3.2", features = ["NSString", "NSArray", "NSDictionary", "NSGeometry", "NSTimer", "NSRunLoop", "NSDate"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSAlert", "NSSecureTextField", "NSTextField", "NSView", "NSWindow", "NSControl", "NSApplication", "NSResponder", "NSLayoutConstraint", "NSGraphics", "NSButton", "NSButtonCell", "NSCell", "NSStackView"] }
+block2 = "0.6.2"
+
+[dev-dependencies]
+tempfile = "3"
+proptest = "1"
+tauri = { version = "2.12.5", features = ["test"] }
+
+[features]
+default = []
+
+[profile.release]
+strip = true
+debug = false
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = "s"

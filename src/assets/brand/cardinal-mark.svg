@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="883" height="795" viewBox="0 0 883 795" role="img" aria-label="Cardinal — geometric cardinal with a rounded credit-card corner">
+<title>Cardinal with rounded credit-card corner</title>
+<desc>Original geometric cardinal silhouette with a single darker red rotated credit card clipped into its bottom. The exposed card corner has perpendicular straight sides and a rounded tip.</desc>
+<defs><clipPath id="bird-body"><path d="M140 727V253L387 27V176H562L702 312L644 289V379L562 464V727Z"/></clipPath></defs>
+<path id="bird" fill="#C83C43" d="M140 727V253L387 27V176H562L702 312L644 289V379L562 464V727Z"/>
+<g clip-path="url(#bird-body)"><rect id="credit-card" x="0" y="0" width="540" height="340" rx="15" fill="#A72B35" transform="translate(377 488) rotate(45)"/></g>
+<path id="beak" fill="#202A32" d="M644 289L829 362L644 428Z"/>
+<circle id="eye" cx="546.5" cy="305" r="23.5" fill="#FFFFFF"/>
+</svg>

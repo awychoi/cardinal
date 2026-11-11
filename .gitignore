@@ -1,0 +1,95 @@
+# Dependencies / toolchain (workspace-local)
+node_modules/
+.toolchain/
+.cache/
+.pnpm-store/
+src-tauri/target/
+target/
+
+# Build output
+dist/
+build/
+*.app
+*.dmg
+src-tauri/gen/
+
+# Local archive of retired files; not part of the repository
+/archive/
+
+# Generated retina social-preview render; not tracked
+docs/design/brand/hero/github-social-preview@2x.png
+
+# Local databases, backups, exports, fixtures
+# The app's own artifacts: SQLCipher vault + WAL, header, backups, exports.
+# Keep this list in sync with the paths in src-tauri/src (vault.rs, demo/mod.rs,
+# services/backups.rs, services/exports.rs); it is the last line of defense
+# against committing a vault, backup, or plaintext ledger export.
+*.cmdb
+*.cmdb-wal
+*.cmdb-shm
+*.cmdb-journal
+*.cmdb.restore-old
+*.cmbak
+vault.header
+vault.header.bak
+.backup-snapshot-*.cmdb
+.portable-snapshot-*.cmdb
+restore-staged-*.cmdb
+pre-migration-v*.cmdb
+cardinal-ledger-*.csv
+.cm-export-*.tmp
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+data/
+backups/
+exports/
+fixtures/real/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+.direnv/
+*.pem
+*.key
+*.p12
+
+# Logs / crash artifacts
+*.log
+*.crash
+*.ips
+core.*
+
+# OS / editor / local files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+.history/
+.fleet/
+*.iml
+*.swp
+*~
+*.orig
+*.rej
+
+# Test output
+test-results/
+playwright-report/
+blob-report/
+*.tsbuildinfo
+
+# Local tool output
+coverage/
+.nyc_output/
+lcov.info
+.eslintcache
+.vite/
+
+
+
+/AGENTS.md

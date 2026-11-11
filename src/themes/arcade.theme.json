@@ -1,0 +1,132 @@
+{
+  "$schema": "./theme.schema.json",
+  "id": "arcade",
+  "name": "Arcade",
+  "description": "Candy-bright violet and cyan, rounded corners, and a little spring in the motion.",
+  "options": {
+    "cardArt": "faces",
+    "density": "comfortable",
+    "motion": "full",
+    "overview": {
+      "composition": "ring",
+      "trend": "bars",
+      "topCategories": 5,
+      "trendMonths": 6
+    }
+  },
+  "type": {
+    "sans": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Helvetica Neue\", sans-serif",
+    "mono": "\"SF Mono\", ui-monospace, Menlo, monospace",
+    "display": "ui-rounded, \"SF Pro Rounded\", \"Avenir Next\", -apple-system, BlinkMacSystemFont, \"Helvetica Neue\", sans-serif",
+    "scale": 1.03,
+    "displayWeight": 760,
+    "displayTracking": -0.04,
+    "lineHeight": 1.5
+  },
+  "shape": {
+    "controlRadius": 12,
+    "panelRadius": 18,
+    "cardRadius": 24,
+    "borderWidth": 1
+  },
+  "spacing": {
+    "screen": 28,
+    "card": 20,
+    "gap": 16
+  },
+  "motion": {
+    "fast": 150,
+    "base": 220,
+    "easing": "cubic-bezier(.34, 1.56, .64, 1)"
+  },
+  "modes": {
+    "light": {
+      "bg": "#f7f4ff",
+      "sidebar": "#efe8ff",
+      "surface": "#ffffff",
+      "surface2": "#f5f1ff",
+      "surface3": "#ebe4ff",
+      "text": "#150f2e",
+      "text2": "#3d3460",
+      "muted": "#5e5488",
+      "border": "#e2dbf7",
+      "borderStrong": "#c9bdec",
+      "borderControl": "#7e6bac",
+      "accent": "#6d28d9",
+      "accentInk": "#5b21b6",
+      "success": "#166534",
+      "onAccent": "#ffffff",
+      "warning": "#92400e",
+      "danger": "#c2183c",
+      "focus": "#6d28d9",
+      "chart": ["#6d28d9", "#db2777", "#0891b2", "#d97706", "#65a30d", "#2563eb"],
+      "shadow": "rgb(52 22 90 / 8%)",
+      "shadowStrong": "rgb(25 10 45 / 40%)"
+    },
+    "dark": {
+      "bg": "#0a0617",
+      "sidebar": "#100a22",
+      "surface": "#170f2e",
+      "surface2": "#211741",
+      "surface3": "#2b1f52",
+      "text": "#f6f2ff",
+      "text2": "#d5cbf5",
+      "muted": "#a79dc9",
+      "border": "#302357",
+      "borderStrong": "#453473",
+      "borderControl": "#8778b8",
+      "accent": "#b794ff",
+      "accentInk": "#d3bcff",
+      "success": "#4ade80",
+      "onAccent": "#1a0b3a",
+      "warning": "#fbbf24",
+      "danger": "#fb7185",
+      "focus": "#67e8f9",
+      "chart": ["#b794ff", "#22d3ee", "#f472b6", "#a3e635", "#fbbf24", "#60a5fa"],
+      "shadow": "rgb(0 0 0 / 45%)",
+      "shadowStrong": "rgb(0 0 0 / 70%)"
+    }
+  },
+  "issuers": {
+    "default": {
+      "from": "#6d28d9",
+      "to": "#be185d",
+      "ink": "#ffffff"
+    },
+    "chase": {
+      "from": "#2563eb",
+      "to": "#0e7490",
+      "ink": "#ffffff"
+    },
+    "synchrony": {
+      "from": "#312e81",
+      "to": "#1e1b4b",
+      "ink": "#eef2ff"
+    },
+    "bilt": {
+      "from": "#be185d",
+      "to": "#7e22ce",
+      "ink": "#ffffff"
+    },
+    "american-express": {
+      "from": "#d9f99d",
+      "to": "#bef264",
+      "ink": "#1a2e05"
+    },
+    "citi": {
+      "from": "#f472b6",
+      "to": "#fb923c",
+      "ink": "#2a0a18"
+    },
+    "demo-bank": {
+      "from": "#047857",
+      "to": "#4d7c0f",
+      "ink": "#f0fdf4"
+    },
+    "paypal": {
+      "from": "#0e7490",
+      "to": "#1e3a8a",
+      "ink": "#ecfeff"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Cardinal app icon">
+<title>Cardinal</title>
+<rect x="100" y="100" width="824" height="824" rx="184" fill="#081120"/>
+<rect x="102.5" y="102.5" width="819" height="819" rx="181.5" fill="none" stroke="rgba(47,91,255,0.55)" stroke-width="3"/>
+<g transform="translate(167.5 202) scale(0.78)">
+
+<defs><clipPath id="bird-body"><path d="M140 727V253L387 27V176H562L702 312L644 289V379L562 464V727Z"/></clipPath></defs>
+<path id="bird" fill="#C83C43" d="M140 727V253L387 27V176H562L702 312L644 289V379L562 464V727Z"/>
+<g clip-path="url(#bird-body)"><rect id="credit-card" x="0" y="0" width="540" height="340" rx="15" fill="#A72B35" transform="translate(377 488) rotate(45)"/></g>
+<path id="beak" fill="#F4F7FF" d="M644 289L829 362L644 428Z"/>
+<circle id="eye" cx="546.5" cy="305" r="23.5" fill="#FFFFFF"/>
+
+</g>
+</svg>

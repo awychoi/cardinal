@@ -11,6 +11,7 @@ User-facing guides for Cardinal.
 | respond to a security incident | [security/incident-runbook.md](security/incident-runbook.md) |
 | connect a bank with Plaid | [integrations/plaid-guide.md](integrations/plaid-guide.md) |
 | back up, restore, or rotate a vault | [operations/backup-recovery.md](operations/backup-recovery.md) |
+| use the workbench logo or banner | [design/brand/README.md](design/brand/README.md) |
 
 ## Map
 
@@ -19,9 +20,9 @@ User-facing guides for Cardinal.
 | [`integrations/`](integrations) | Plaid setup and linking |
 | [`operations/`](operations) | Backup and recovery |
 | [`security/`](security) | Security architecture, threat model, incident runbook |
-| [`design/`](design) | README artwork only |
+| [`design/`](design) | README artwork, the workbench banner, and the brand lockup |
 
 Plans, dated reviews, implementation logs, reference decisions, the data dictionary, the test
-plan, brand design boards, theming authoring notes, and local-signing notes are retired to the
-local, gitignored `archive/` folder. Code-hygiene tooling — CI, secret scanning, hooks, lint/format,
+plan, the older brand and theming boards, and local-signing notes are retired to the local,
+gitignored `archive/` folder. Code-hygiene tooling — CI, secret scanning, hooks, lint/format,
 tests, probes and release checks — stays in the repository.

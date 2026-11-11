@@ -2,10 +2,10 @@
 treatment: hero
 order: 20
 kicker: Private · Serverless
-banner: docs/design/app-blueprint-overview-dark.png
-banner_alt: Cardinal overview screen showing net spending, reported payments, and card balances.
-logo: src/assets/brand/cardinal-mark-dark.svg
-logo_light: src/assets/brand/cardinal-mark.svg
+banner: docs/design/app-arcade-overview-dark.png
+banner_alt: Cardinal overview in the Arcade theme, showing net spending, reported payments, and card balances for synthetic demo data.
+logo: src/assets/brand/cardinal-lockup-dark.svg
+logo_light: src/assets/brand/cardinal-lockup.svg
 meta:
   - label: The experiment
     value: Reduce attack surface by architecture - no server, accounts, telemetry, or remote code. No retained passphrase, no recovery backdoor.

@@ -7,10 +7,8 @@ banner_alt: Cardinal overview in the Arcade theme, showing net spending, reporte
 logo: src/assets/brand/cardinal-lockup-dark.svg
 logo_light: src/assets/brand/cardinal-lockup.svg
 meta:
-  - label: The experiment
-    value: Reduce attack surface by architecture - no server, accounts, telemetry, or remote code. No retained passphrase, no recovery backdoor.
-  - label: What I learned
-    value: A local-first security model is mostly a set of refusals; every convenience has to earn its place.
+  - label: How it started
+    value: I didn't want to hand over my private spending data, so I built my own expense tracker. Since I use credit cards 99% of the time, a Plaid trial made total sense.
 link:
   href: https://github.com/awychoi/cardinal
 ---

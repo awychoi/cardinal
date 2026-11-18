@@ -1,6 +1,6 @@
 ---
 treatment: hero
-order: 20
+order: 10
 kicker: Private · Serverless
 banner: docs/design/app-arcade-overview-dark.png
 banner_alt: Cardinal overview in the Arcade theme, showing net spending, reported payments, and card balances for synthetic demo data.

@@ -9,7 +9,7 @@ describe("redacting logger", () => {
       passphrase: "sentinel-passphrase",
       token: "sentinel-token",
       merchant: "Acme",
-      path: "/Users/awychoi/secret",
+      path: "/Users/example/secret",
     });
     expect(safe).toEqual({ command: "app_info", code: "ok" });
     expect(JSON.stringify(safe)).not.toContain("sentinel");

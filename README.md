@@ -67,6 +67,18 @@ pnpm test:e2e        # Playwright; run `pnpm exec playwright install chromium` f
 cd src-tauri && cargo test
 ```
 
+## Secret scanning
+
+The repository ships a [gitleaks](https://github.com/gitleaks/gitleaks) pre-commit hook and a
+full-history CI scan. Enable the local hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+It rejects staged credentials and the app's own vault, backup, and plaintext ledger-export
+artifacts. CI (`.github/workflows/secret-scan.yml`) re-scans all history on every push and weekly.
+
 ## Security notes
 
 - **There is no passphrase recovery.** Lose the passphrase and every backup passphrase, and the
@@ -77,7 +89,7 @@ cd src-tauri && cargo test
   credentials. The app allows one active Item per institution: if a bank is already connected, link
   completion stops before the access-token exchange and points to **Update**/**Reconnect** instead,
   so a duplicate cannot consume another Trial Item. Both environments are verified end to end:
-  Sandbox on 2026-10-24 and Trial/Production on 2026-11-01 with a real Chase Item (4 credit
+  Sandbox on 2026-10-24 and Trial/Production on 2026-11-01 with a real production Item (4 credit
   accounts). Live reconnect/update mode has not been exercised against a real Item, and Trial limits
   and billing apply. The app is not affiliated with Plaid.
 - The UI never receives the passphrase or provider tokens; those stay in Rust and the macOS
@@ -94,7 +106,7 @@ cd src-tauri && cargo test
 ## Status
 
 Early and experimental. Interfaces, storage formats, and behavior can change. Plaid linking is
-verified in both Sandbox and Trial/Production — the production path with a real Chase Item
+verified in both Sandbox and Trial/Production — the production path with a real production Item
 (4 credit accounts, 2026-11-01). Live reconnect/update mode remains unverified. The macOS build is
 ad-hoc signed and not distribution-ready.
 

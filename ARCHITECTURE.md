@@ -6,8 +6,8 @@ actually do. [SECURITY.md](SECURITY.md) states the security claims and residual 
 [README.md](README.md) is the user-facing overview.
 
 **Status:** local, single-user Apple Silicon build, ad-hoc signed and not distribution-ready. Plaid
-linking is verified in Sandbox and, since 2026-11-01, in Trial/Production with a real Chase Item
-(4 credit accounts); live reconnect/update mode is unverified.
+linking is verified in Sandbox and, since 2026-11-01, in Trial/Production with a real production
+Item (4 credit accounts); live reconnect/update mode is unverified.
 
 ## 1. Process and trust boundaries
 

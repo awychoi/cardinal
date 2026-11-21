@@ -17,6 +17,7 @@ import type { Theme } from "../../theme/schema";
 import { AccountKindIcon } from "../../components/AccountKindIcon";
 import { Button } from "../../components/Button";
 import { dueText } from "./cardsPresentation";
+import { buildWealthModel, totalReported } from "./wealthModel";
 import "./accounts.css";
 
 type CardStatus = "ok" | "warn" | "fail" | "info";
@@ -26,10 +27,6 @@ function statusFor(account: AccountCard): CardStatus {
   if (account.connectionStatus === "healthy") return "ok";
   if (account.connectionStatus === "error") return "fail";
   return "warn";
-}
-
-function modelUsdCardCount(accounts: AccountCard[]): number {
-  return accounts.filter((account) => account.currency === "USD").length;
 }
 
 function statusClass(status: CardStatus): string {
@@ -111,12 +108,62 @@ export function AccountsView({
   onAddAccount: () => void;
 }) {
   const accounts = dashboard.overview.accounts;
-  const included = accounts.filter((account) => account.included);
   const cashAccounts = accounts.filter((account) => isDepositoryAccount(account.accountType));
   const cardAccounts = accounts.filter((account) => !isDepositoryAccount(account.accountType));
-  const includedCash = included.filter((account) => isDepositoryAccount(account.accountType));
-  const includedCards = included.filter((account) => !isDepositoryAccount(account.accountType));
   const { balances } = dashboard.overview;
+  const model = buildWealthModel(dashboard, null);
+  const cashKnown = totalReported(model.cashStatus);
+  const cardKnown = totalReported(model.cardStatus);
+  const excludedCashCount = cashAccounts.filter((account) => !account.included).length;
+  const excludedCardCount = cardAccounts.filter((account) => !account.included).length;
+  // An empty side usually means $0.00. When every account on that side is
+  // excluded from totals, show "—" instead so the listed balance is not read as
+  // a zero that was counted.
+  const cashDisplay =
+    cashKnown && !(model.cashStatus === "empty" && excludedCashCount > 0)
+      ? formatMoney(balances.cashKnownTotalMinor)
+      : "—";
+  const cardDisplay =
+    cardKnown && !(model.cardStatus === "empty" && excludedCardCount > 0)
+      ? formatMoney(balances.cardKnownTotalMinor)
+      : "—";
+  const excludedSuffix = (count: number) => (count > 0 ? ` · ${count} not in totals` : "");
+  const cashNote =
+    model.cashStatus === "not_reported"
+      ? `${model.usdCashCount} account${model.usdCashCount === 1 ? "" : "s"} · Not reported`
+      : model.cashStatus === "empty"
+        ? excludedCashCount > 0
+          ? `${excludedCashCount} account${excludedCashCount === 1 ? "" : "s"} · not in totals`
+          : "No cash accounts yet"
+        : `${model.usdCashCount} account${model.usdCashCount === 1 ? "" : "s"} · ${
+            model.cashStatus === "complete"
+              ? "all reported"
+              : `${model.usdCashReportedCount} of ${model.usdCashCount} reported`
+          }${excludedSuffix(excludedCashCount)}`;
+  const cardNote =
+    model.cardStatus === "not_reported"
+      ? `${model.usdCardCount} card${model.usdCardCount === 1 ? "" : "s"} tracked · Not reported`
+      : model.cardStatus === "empty"
+        ? excludedCardCount > 0
+          ? `${excludedCardCount} card${excludedCardCount === 1 ? "" : "s"} · not in totals`
+          : "No cards tracked"
+        : `${model.usdCardCount} USD card${model.usdCardCount === 1 ? "" : "s"} · ${
+            model.cardStatus === "complete"
+              ? "all reported"
+              : `${model.usdCardReportedCount} of ${model.usdCardCount} reported`
+          }${excludedSuffix(excludedCardCount)}`;
+  const netDisplay =
+    model.netStatus === "not_reported" || model.netStatus === "empty"
+      ? "—"
+      : formatSignedMoney(balances.netPositionMinor);
+  const netNote =
+    model.netStatus === "complete"
+      ? "Cash minus card balances"
+      : model.netStatus === "partial"
+        ? "Known balances only — some are missing"
+        : model.netStatus === "empty"
+          ? "No USD accounts in totals"
+          : "Not reported — add or sync a balance";
   const faces = theme.options.cardArt === "faces";
   const spendByAccount = new Map<string, number>(
     dashboard.accountSpend.map(
@@ -150,8 +197,7 @@ export function AccountsView({
   }
 
   const net = balances.netPositionMinor;
-  const known = balances.cashKnownTotalMinor + balances.cardKnownTotalMinor;
-  const cashShare = known > 0 ? Math.round((balances.cashKnownTotalMinor / known) * 100) : 50;
+  const cashShare = model.cashShare;
 
   return (
     <section className="dashboard accounts-view" aria-labelledby="accounts-title">
@@ -176,44 +222,36 @@ export function AccountsView({
           <span className="sheet-side-label">
             <AccountKindIcon kind="cash" /> Cash you own
           </span>
-          <strong className="sheet-side-value">{formatMoney(balances.cashKnownTotalMinor)}</strong>
-          <span className="sheet-side-note">
-            {includedCash.length} account{includedCash.length === 1 ? "" : "s"}
-            {balances.cashComplete ? " · all reported" : " · some missing"}
-          </span>
+          <strong className="sheet-side-value">{cashDisplay}</strong>
+          <span className="sheet-side-note">{cashNote}</span>
         </div>
 
         <div className="sheet-net">
           <span className="eyebrow">Net position</span>
-          <strong className={`sheet-net-value${net < 0 ? " is-negative" : ""}`}>
-            {formatSignedMoney(net)}
-          </strong>
-          <div
-            className="sheet-net-bar"
-            role="img"
-            aria-label={`Cash ${formatMoney(
-              balances.cashKnownTotalMinor,
-            )} and card balances ${formatMoney(balances.cardKnownTotalMinor)}`}
+          <strong
+            className={`sheet-net-value${net < 0 && netDisplay !== "—" ? " is-negative" : ""}`}
           >
-            <span style={{ width: `${cashShare}%` }} />
-            <span style={{ width: `${100 - cashShare}%` }} />
-          </div>
-          <span className="sheet-side-note">
-            {balances.netPositionComplete
-              ? "Cash minus card balances"
-              : "Known balances only — some are missing"}
-          </span>
+            {netDisplay}
+          </strong>
+          {cashShare !== null && balances.cashKnownTotalMinor + balances.cardKnownTotalMinor > 0 ? (
+            <div
+              className="sheet-net-bar"
+              role="img"
+              aria-label={`Cash ${cashDisplay} and card balances ${cardDisplay}`}
+            >
+              <span style={{ width: `${cashShare}%` }} />
+              <span style={{ width: `${100 - cashShare}%` }} />
+            </div>
+          ) : null}
+          <span className="sheet-side-note">{netNote}</span>
         </div>
 
         <div className="sheet-side sheet-side-debt">
           <span className="sheet-side-label">
             <AccountKindIcon kind="card" /> Card balances
           </span>
-          <strong className="sheet-side-value">{formatMoney(balances.cardKnownTotalMinor)}</strong>
-          <span className="sheet-side-note">
-            {includedCards.length} card{includedCards.length === 1 ? "" : "s"} tracked ·{" "}
-            {balances.cardAccountsWithBalance}/{modelUsdCardCount(includedCards)} USD reported
-          </span>
+          <strong className="sheet-side-value">{cardDisplay}</strong>
+          <span className="sheet-side-note">{cardNote}</span>
         </div>
       </section>
 
@@ -225,9 +263,7 @@ export function AccountsView({
               Bank accounts
             </h2>
           </div>
-          <strong className="account-group-total">
-            {formatMoney(balances.cashKnownTotalMinor)}
-          </strong>
+          <strong className="account-group-total">{cashDisplay}</strong>
         </header>
 
         {cashAccounts.length > 0 ? (
@@ -266,8 +302,8 @@ export function AccountsView({
                       {spend === null ? "—" : formatMoney(spend, account.currency)}
                     </span>
                     <span>
-                      <small>In net position</small>
-                      {account.included ? "Yes" : "No"}
+                      <small>{account.included ? "In net position" : "Not in totals"}</small>
+                      {account.included ? "Yes" : "Excluded"}
                     </span>
                   </span>
                   <span className="bank-card-note">
@@ -308,9 +344,7 @@ export function AccountsView({
               Credit cards
             </h2>
           </div>
-          <strong className="account-group-total">
-            {formatMoney(balances.cardKnownTotalMinor)}
-          </strong>
+          <strong className="account-group-total">{cardDisplay}</strong>
         </header>
 
         {cardAccounts.length > 0 ? (
@@ -389,6 +423,9 @@ export function AccountsView({
 
                     <span className="card-account-foot">
                       <span>{dueText(account, true)}</span>
+                      {!account.included ? (
+                        <span className="fine-print card-excluded">Not in totals</span>
+                      ) : null}
                       {account.payment.dueSource === "manual" ? (
                         <span className="fine-print card-manual-source">
                           Due source: manual

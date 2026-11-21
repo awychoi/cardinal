@@ -72,6 +72,13 @@ test.describe("read-only dashboard (browser mock)", () => {
     await expect(page.locator(".ledger-status-ok").first()).toBeVisible();
     await expect(page.locator(".ledger-meta")).toContainText("eligible");
     await expect(page.locator(".ledger-meta")).toContainText("USD");
+    // The badge counts USD rows and other-currency rows, without summing them.
+    await expect(
+      page
+        .getByRole("navigation", { name: "Primary" })
+        .getByRole("button", { name: "Transactions", exact: true })
+        .locator(".nav-count"),
+    ).toHaveText("30");
 
     const filterPosition = await page
       .locator(".filter-bar")
@@ -137,6 +144,28 @@ test.describe("read-only dashboard (browser mock)", () => {
     await expect(page.getByLabel("Search transactions")).not.toHaveValue("");
   });
 
+  test("month navigation resets ledger pagination and closes transaction details", async ({
+    page,
+  }) => {
+    await openUnlocked(page);
+    await page.getByRole("button", { name: "Transactions", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
+
+    await page.getByLabel("Rows per page").selectOption("25");
+    await expect(page.getByText("Page 1 of 2")).toBeVisible();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(page.getByText("Page 2 of 2")).toBeVisible();
+
+    await page.locator(".ledger-day-group tr:not(.ledger-day-row)").first().click();
+    await expect(page.locator("#detail-title")).toBeVisible();
+
+    await page.getByRole("button", { name: "Previous month" }).click();
+    await expect(page.locator(".month-label")).toHaveText("September 2026");
+    await expect(page.getByText("Page 1 of 1")).toBeVisible();
+    await expect(page.locator("#detail-title")).toHaveCount(0);
+    await expect(page.locator(".ledger-meta")).toContainText("13 rows");
+  });
+
   test("month navigation changes spending but not current balances", async ({ page }) => {
     await openUnlocked(page);
     await expect(page.locator(".month-label")).toHaveText("October 2026");
@@ -184,6 +213,21 @@ test.describe("read-only dashboard (browser mock)", () => {
     );
     expect(overflow).toBe(false);
     await expect(page.locator(".table-wrap")).toBeVisible();
+
+    await expect(page.locator(".ledger-meta")).toContainText(/[1-9]\d* rows/);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(150);
+    const sticky = await page.evaluate(() => {
+      const bar = document.querySelector(".filter-bar-sticky");
+      const header = document.querySelector(".header");
+      if (!bar || !header) return null;
+      return {
+        barTop: bar.getBoundingClientRect().top,
+        headerBottom: header.getBoundingClientRect().bottom,
+      };
+    });
+    expect(sticky).not.toBeNull();
+    expect(sticky?.barTop ?? 0).toBeGreaterThanOrEqual(sticky?.headerBottom ?? 0);
   });
 
   test("demo mode is labeled, isolated, resettable, and exitable", async ({ page }) => {

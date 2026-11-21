@@ -16,11 +16,29 @@ import { formatMoney } from "../../lib/formatting";
  * becomes a $0.00 input to a ratio.
  */
 
+export type BalanceStatus = "empty" | "not_reported" | "partial" | "complete";
+
+/**
+ * How complete a USD side of the balance sheet is. "not_reported" means the
+ * accounts exist but none has a balance snapshot; a reported $0.00 is known
+ * and therefore "complete".
+ */
+export function balanceStatus(accountCount: number, reportedCount: number): BalanceStatus {
+  if (accountCount === 0) return "empty";
+  if (reportedCount === 0) return "not_reported";
+  return reportedCount < accountCount ? "partial" : "complete";
+}
+
+/** A total may be displayed whenever at least one account on the side reported. */
+export function totalReported(status: BalanceStatus): boolean {
+  return status !== "not_reported";
+}
+
 export interface WealthModel {
   included: AccountCard[];
   cashAccounts: AccountCard[];
   cardAccounts: AccountCard[];
-  /** Share of known cash + card debt that is cash, 0–100. Null when neither side is known. */
+  /** Share of known cash + card debt that is cash, 0–100. Null when a side is unreported. */
   cashShare: number | null;
   /** The average net spend of complete months that actually had activity. */
   typicalMonthMinor: number | null;
@@ -33,12 +51,21 @@ export interface WealthModel {
   creditLimitMinor: number | null;
   utilizationPercent: number | null;
   missingBalances: number;
+  /** Included USD accounts without a balance snapshot; the net position's own gap. */
+  usdMissingBalances: number;
   staleBalances: number;
   cashAccountCount: number;
   cardAccountCount: number;
   /** Counts aligned with the USD totals: other currencies are never summed in. */
   usdCashCount: number;
   usdCardCount: number;
+  /** USD accounts that reported a balance, including a reported $0.00. */
+  usdCashReportedCount: number;
+  usdCardReportedCount: number;
+  usdReportedCount: number;
+  cashStatus: BalanceStatus;
+  cardStatus: BalanceStatus;
+  netStatus: BalanceStatus;
   otherCurrencyCount: number;
 }
 
@@ -53,13 +80,32 @@ export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | n
   const included = overview.accounts.filter((account) => account.included);
   const cashAccounts = included.filter((account) => isDepositoryAccount(account.accountType));
   const cardAccounts = included.filter((account) => !isDepositoryAccount(account.accountType));
-  const usdCashCount = cashAccounts.filter((account) => account.currency === "USD").length;
-  const usdCardCount = cardAccounts.filter((account) => account.currency === "USD").length;
+  const usdIncluded = included.filter((account) => account.currency === "USD");
+  const usdCash = usdIncluded.filter((account) => isDepositoryAccount(account.accountType));
+  const usdCards = usdIncluded.filter((account) => !isDepositoryAccount(account.accountType));
+  const usdCashReportedCount = usdCash.filter(
+    (account) => account.currentBalanceMinor !== null,
+  ).length;
+  const usdCardReportedCount = usdCards.filter(
+    (account) => account.currentBalanceMinor !== null,
+  ).length;
+  const usdReportedCount = usdCashReportedCount + usdCardReportedCount;
+  const usdMissingBalances = usdIncluded.length - usdReportedCount;
+  const cashStatus = balanceStatus(usdCash.length, usdCashReportedCount);
+  const cardStatus = balanceStatus(usdCards.length, usdCardReportedCount);
+  const netStatus = balanceStatus(usdIncluded.length, usdReportedCount);
   const { balances } = overview;
 
+  // A side with no accounts is known to be $0.00. A side with accounts but no
+  // balance snapshot is unknown, never a zero. The split only makes sense when
+  // both sides are known; when the known total is zero, show an even split.
   const knownTotal = balances.cashKnownTotalMinor + balances.cardKnownTotalMinor;
   const cashShare =
-    knownTotal > 0 ? Math.round((balances.cashKnownTotalMinor / knownTotal) * 100) : null;
+    cashStatus === "not_reported" || cardStatus === "not_reported"
+      ? null
+      : knownTotal > 0
+        ? Math.round((balances.cashKnownTotalMinor / knownTotal) * 100)
+        : 50;
 
   const typical = history ? typicalMonthMinor(history.months) : null;
   const pacePercent =
@@ -68,12 +114,12 @@ export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | n
       : null;
 
   const cushionMonths =
-    typical && typical > 0 && balances.cashKnownTotalMinor > 0
+    typical && typical > 0 && usdCashReportedCount > 0
       ? balances.cashKnownTotalMinor / typical
       : null;
 
   const cashAfterUpcomingMinor =
-    balances.cashKnownTotalMinor > 0
+    usdCashReportedCount > 0
       ? balances.cashKnownTotalMinor - overview.upcoming.knownTotalMinor
       : null;
 
@@ -120,11 +166,18 @@ export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | n
     creditLimitMinor,
     utilizationPercent,
     missingBalances: balances.cardAccountsMissingBalance + balances.cashAccountsMissingBalance,
+    usdMissingBalances,
     staleBalances: included.filter((account) => account.balanceStale).length,
     cashAccountCount: cashAccounts.length,
     cardAccountCount: cardAccounts.length,
-    usdCashCount,
-    usdCardCount,
+    usdCashCount: usdCash.length,
+    usdCardCount: usdCards.length,
+    usdCashReportedCount,
+    usdCardReportedCount,
+    usdReportedCount,
+    cashStatus,
+    cardStatus,
+    netStatus,
     otherCurrencyCount: balances.otherCurrency.length,
   };
 }
@@ -146,7 +199,7 @@ export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
           ? `about ${months.toFixed(1)} months`
           : "less than a month";
     items.push(`Cash covers ${phrase} of typical spending at your recent pace.`);
-  } else if (balances.cashKnownTotalMinor > 0) {
+  } else if (model.usdCashReportedCount > 0) {
     items.push(
       "Your cash is counted, but there is not enough posted activity yet to estimate a cushion.",
     );
@@ -155,13 +208,18 @@ export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
   }
 
   if (model.cardAccountCount > 0) {
-    if (balances.cardKnownTotalMinor > balances.cashKnownTotalMinor) {
+    if (model.usdCardReportedCount === 0) {
+      items.push("Card balances are not reported yet, so the net position stays partial.");
+    } else if (
+      model.usdCashReportedCount > 0 &&
+      balances.cardKnownTotalMinor > balances.cashKnownTotalMinor
+    ) {
       items.push(
         `Card balances sit ${formatMoney(
           balances.cardKnownTotalMinor - balances.cashKnownTotalMinor,
         )} above known cash.`,
       );
-    } else if (balances.cardKnownTotalMinor === 0) {
+    } else if (model.usdCashReportedCount > 0 && balances.cardKnownTotalMinor === 0) {
       items.push("No card debt reported. Your whole net position is cash.");
     }
   }
@@ -188,9 +246,9 @@ export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
     );
   }
 
-  if (model.missingBalances > 0) {
+  if (model.usdMissingBalances > 0) {
     items.push(
-      `${model.missingBalances} account${model.missingBalances === 1 ? " has" : "s have"} no balance snapshot, so the net position is partial.`,
+      `${model.usdMissingBalances} account${model.usdMissingBalances === 1 ? " has" : "s have"} no balance snapshot, so the net position is partial.`,
     );
   } else if (summary.pendingSubtotalMinor > 0) {
     items.push(

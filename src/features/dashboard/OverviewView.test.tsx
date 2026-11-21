@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMockBridge, __setMockSettings, __setMockVaultState } from "../../mocks/bridge";
 import { formatMoney } from "../../lib/formatting";
+import { isDepositoryAccount } from "../../lib/bridge";
 import { mockDashboard } from "../../mocks/data";
+import { dashboardWithAccounts } from "../../test/wealthFixtures";
 import { getTheme } from "../../theme";
 import { OverviewView } from "./OverviewView";
 
@@ -159,6 +161,77 @@ describe("OverviewView", () => {
     expect(onOpenSettings).toHaveBeenCalledOnce();
     await user.click(screen.getByRole("button", { name: "Open ledger" }));
     expect(onOpenTransactions).toHaveBeenCalledOnce();
+  });
+
+  it("renders a missing balance as unknown, not $0.00", () => {
+    const existing = mockDashboard("demo", "2026-10").overview.accounts;
+    const checking = existing.find(
+      (account) => isDepositoryAccount(account.accountType) && account.currency === "USD",
+    );
+    const card = existing.find(
+      (account) => !isDepositoryAccount(account.accountType) && account.currency === "USD",
+    );
+    if (!checking || !card) throw new Error("fixture accounts missing");
+    const dashboard = dashboardWithAccounts([
+      {
+        ...checking,
+        accountId: "blank-cash",
+        displayName: "Blank Checking",
+        currentBalanceMinor: null,
+      },
+      { ...card, accountId: "blank-card", displayName: "Blank Card", currentBalanceMinor: null },
+    ]);
+    renderOverview("ledger", dashboard);
+
+    const hero = screen.getByRole("region", { name: "Net position" });
+    const cashMini = within(hero).getByText("Cash on hand").closest(".hero-mini") as HTMLElement;
+    const cardMini = within(hero).getByText("Card balances").closest(".hero-mini") as HTMLElement;
+    expect(within(cashMini).getByText("—")).toBeInTheDocument();
+    expect(within(cashMini).getByText("Not reported")).toBeInTheDocument();
+    expect(within(cardMini).getByText("—")).toBeInTheDocument();
+    expect(within(cardMini).getByText("Not reported")).toBeInTheDocument();
+    expect(within(hero).queryByText("$0.00")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Cash is not reported yet. A missing balance stays unknown, never $0.00."),
+    ).toBeInTheDocument();
+  });
+
+  it("counts a reported $0.00 as reported", () => {
+    const existing = mockDashboard("demo", "2026-10").overview.accounts;
+    const checking = existing.find(
+      (account) => isDepositoryAccount(account.accountType) && account.currency === "USD",
+    );
+    if (!checking) throw new Error("fixture checking account missing");
+    const dashboard = dashboardWithAccounts([
+      { ...checking, accountId: "zero-cash", displayName: "Zero Checking", currentBalanceMinor: 0 },
+    ]);
+    renderOverview("ledger", dashboard);
+
+    const hero = screen.getByRole("region", { name: "Net position" });
+    const cashMini = within(hero).getByText("Cash on hand").closest(".hero-mini") as HTMLElement;
+    expect(within(cashMini).getByText("$0.00")).toBeInTheDocument();
+    expect(within(cashMini).getByText("1 of 1 reported")).toBeInTheDocument();
+    expect(within(hero).getByText(/complete/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/not enough posted activity yet to estimate a cushion/),
+    ).toBeInTheDocument();
+  });
+
+  it("lets every payment behind the due total be inspected", async () => {
+    renderOverview();
+
+    const dueList = screen.getByRole("list", { name: "Upcoming payments" });
+    expect(within(dueList).getAllByRole("listitem")).toHaveLength(4);
+
+    await userEvent.click(screen.getByRole("button", { name: "Show all 7 payments" }));
+    expect(
+      within(screen.getByRole("list", { name: "Upcoming payments" })).getAllByRole("listitem"),
+    ).toHaveLength(7);
+
+    await userEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(
+      within(screen.getByRole("list", { name: "Upcoming payments" })).getAllByRole("listitem"),
+    ).toHaveLength(4);
   });
 
   it("offers Add account when the ledger has no accounts", () => {

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openPrimaryView, openUnlocked } from "./helpers";
+import { openPrimaryView, openSettingsSection, openUnlocked } from "./helpers";
 
 test.describe("wealth view (browser mock)", () => {
   test("treats bank accounts as peers of cards on the balance sheet", async ({ page }) => {
@@ -35,6 +35,84 @@ test.describe("wealth view (browser mock)", () => {
     await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
     await expect(page.getByText("Last checked")).toBeVisible();
     await expect(page.getByText(/Supplier and category totals reconcile/)).toBeVisible();
+  });
+
+  test("keeps status pills inside credit cards in the top-bar layout at 1100", async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 760 });
+    await openUnlocked(page);
+    await openSettingsSection(page, "Appearance");
+    await page
+      .getByRole("group", { name: "Navigation layout" })
+      .getByRole("button", { name: "Top bar" })
+      .click();
+    await expect(page.locator(".app")).toHaveAttribute("data-nav", "topbar");
+    await openPrimaryView(page, "Accounts");
+    await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
+
+    const layout = await page.evaluate(() => {
+      const root = document.documentElement;
+      const cards = Array.from(document.querySelectorAll<HTMLElement>(".card-account"));
+      const escapedPills = cards.reduce((count, card) => {
+        const cardBox = card.getBoundingClientRect();
+        return (
+          count +
+          Array.from(card.querySelectorAll<HTMLElement>(".status-pill")).filter((pill) => {
+            const pillBox = pill.getBoundingClientRect();
+            return pillBox.right > cardBox.right + 0.5 || pillBox.left < cardBox.left - 0.5;
+          }).length
+        );
+      }, 0);
+      const overflowingCards = cards.filter(
+        (card) => card.scrollWidth > card.clientWidth + 1,
+      ).length;
+      return {
+        pageOverflow: root.scrollWidth > root.clientWidth,
+        escapedPills,
+        overflowingCards,
+        cardCount: cards.length,
+      };
+    });
+
+    expect(layout.pageOverflow).toBe(false);
+    expect(layout.escapedPills).toBe(0);
+    expect(layout.overflowingCards).toBe(0);
+    expect(layout.cardCount).toBeGreaterThan(0);
+  });
+
+  test("never turns a missing balance into $0.00", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await page.goto("/?mockOnboarding=1&mockAccounts=empty");
+    await page.getByRole("button", { name: "Unlock vault" }).click();
+    await expect(page.getByText("Connect your bank.")).toBeVisible();
+    await page.getByRole("button", { name: "Skip setup" }).click();
+    await expect(page.getByText("Your accounts, in one quiet place.")).toBeVisible();
+    await page.getByRole("button", { name: "Add account" }).click();
+    await page.getByRole("button", { name: "Add account manually" }).click();
+    await page.getByLabel("Issuer").fill("Local Bank");
+    await page.getByLabel("Display name").fill("Everyday Checking");
+    await page.getByLabel("Account type").selectOption("checking");
+    // Current balance is deliberately left blank.
+    await page.getByRole("button", { name: "Add account" }).click();
+    await expect(page.getByText("Everyday Checking", { exact: true }).first()).toBeVisible();
+    await openPrimaryView(page, "Overview");
+
+    const cashMini = page.locator(".hero-mini", { hasText: "Cash on hand" });
+    await expect(cashMini).toContainText("—");
+    await expect(cashMini).toContainText("Not reported");
+    await expect(page.locator(".wealth-beam-labels")).toContainText("Cash —");
+    await expect(page.locator(".wealth-beam-labels")).not.toContainText("Cash $0.00");
+    await expect(page.locator(".side-net-value")).toHaveText("—");
+    await expect(page.locator(".side-net-split")).toContainText("Cash—");
+    await expect(page.locator(".side-net-split")).not.toContainText("Cash$0.00");
+    await expect(page.locator(".side-net-foot")).toContainText("not reported");
+
+    await openPrimaryView(page, "Accounts");
+    await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
+    const cashSide = page.locator(".sheet-side-cash");
+    await expect(cashSide).toContainText("—");
+    await expect(cashSide).toContainText("Not reported");
+    await expect(cashSide).not.toContainText("$0.00");
+    await expect(page.getByText(/No balance snapshot/).first()).toBeVisible();
   });
 
   test("keeps the balance sheet readable when the window is narrower", async ({ page }) => {

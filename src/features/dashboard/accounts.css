@@ -457,6 +457,17 @@
   display: flex;
   gap: 8px;
   justify-content: space-between;
+  min-width: 0;
+}
+
+.card-account-head > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.card-account-head .status-pill {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .card-account-name {
@@ -464,6 +475,7 @@
   font-size: 12.5px;
   font-weight: 620;
   line-height: 1.2;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -474,6 +486,10 @@
   display: block;
   font-size: 9px;
   margin-top: 1px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-account-balance-row {
@@ -551,6 +567,10 @@
 }
 
 .card-stale {
+  color: var(--warning);
+}
+
+.card-excluded {
   color: var(--warning);
 }
 

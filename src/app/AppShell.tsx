@@ -23,6 +23,7 @@ import { RelativeAge } from "../components/RelativeAge";
 import { MakerLink } from "../components/MadeBy";
 import { Button } from "../components/Button";
 import { formatMoney, formatMonthRange, formatSignedMoney, monthLabel } from "../lib/formatting";
+import { buildWealthModel, totalReported } from "../features/dashboard/wealthModel";
 import type { Theme, ThemeMode } from "../theme/schema";
 
 type View = "overview" | "accounts" | "transactions" | "settings";
@@ -266,7 +267,9 @@ export function AppShell({
   const navCounts: Partial<Record<View, number>> = dashboard
     ? {
         accounts: dashboard.overview.accounts.filter((account) => account.included).length,
-        transactions: dashboard.summary.rowCount,
+        // The summary separates USD rows from other-currency rows; counting
+        // both matches the ledger without ever summing their currencies.
+        transactions: dashboard.summary.rowCount + dashboard.summary.otherCurrencyRowCount,
       }
     : {};
 
@@ -337,6 +340,14 @@ export function AppShell({
   const cardAccounts = includedAccounts.filter(
     (account) => !isDepositoryAccount(account.accountType),
   );
+  const wealth = dashboard ? buildWealthModel(dashboard, null) : null;
+  const cashKnown = wealth ? totalReported(wealth.cashStatus) : false;
+  const cardKnown = wealth ? totalReported(wealth.cardStatus) : false;
+  const netKnown =
+    wealth !== null && wealth.netStatus !== "not_reported" && wealth.netStatus !== "empty";
+  const cashSide = balances && cashKnown ? formatMoney(balances.cashKnownTotalMinor) : "—";
+  const cardSide = balances && cardKnown ? formatMoney(balances.cardKnownTotalMinor) : "—";
+  const netSide = balances && netKnown ? formatSignedMoney(balances.netPositionMinor) : "—";
 
   const sideNet = dashboard ? (
     <div className="side-net" aria-label="Current net position">
@@ -345,24 +356,28 @@ export function AppShell({
         <span className="side-net-asof">current</span>
       </div>
       <strong
-        className={`side-net-value${balances && balances.netPositionMinor < 0 ? " is-negative" : ""}`}
+        className={`side-net-value${netKnown && balances && balances.netPositionMinor < 0 ? " is-negative" : ""}`}
       >
-        {balances ? formatSignedMoney(balances.netPositionMinor) : "—"}
+        {netSide}
       </strong>
       <div className="side-net-split">
         <span>
           <span className="side-net-key">Cash</span>
-          <span>{balances ? formatMoney(balances.cashKnownTotalMinor) : "—"}</span>
+          <span>{cashSide}</span>
         </span>
         <span>
           <span className="side-net-key">Owed</span>
-          <span>{balances ? formatMoney(balances.cardKnownTotalMinor) : "—"}</span>
+          <span>{cardSide}</span>
         </span>
       </div>
       <div className="side-net-foot">
         {cashAccounts.length} cash · {cardAccounts.length} card
         {cardAccounts.length === 1 ? "" : "s"}
-        {balances && !balances.netPositionComplete ? " · some missing" : ""}
+        {wealth?.netStatus === "partial"
+          ? " · some missing"
+          : wealth?.netStatus === "not_reported"
+            ? " · not reported"
+            : ""}
       </div>
       <button type="button" className="side-add" onClick={addAccount}>
         <span aria-hidden="true">+</span> Add an account

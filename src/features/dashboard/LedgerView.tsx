@@ -102,6 +102,13 @@ export function LedgerView({
     return () => window.clearTimeout(timeout);
   }, [searchInput]);
 
+  // A page number belongs to one month's bounds. Keep the page and any open
+  // detail from leaking into the next month when the header moves.
+  useEffect(() => {
+    setPage(0);
+    setSelected(null);
+  }, [dashboard.startDate, dashboard.endDateExclusive]);
+
   useEffect(() => {
     if (presetNonce === 0) return;
     setMode("transactions");

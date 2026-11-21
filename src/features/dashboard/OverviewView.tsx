@@ -16,7 +16,7 @@ import { brandMarkFor } from "../../brand/logos";
 import type { Theme, ThemeMode } from "../../theme/schema";
 import { buildComposition, CategoryRing, RankedBars, toChartData, TrendBars } from "./charts";
 import { UtilizationPanel } from "./UtilizationPanel";
-import { buildWealthModel, quickRead } from "./wealthModel";
+import { buildWealthModel, quickRead, totalReported } from "./wealthModel";
 import "./overview.css";
 
 type UpcomingEntry = Dashboard["overview"]["upcoming"]["entries"][number];
@@ -84,6 +84,7 @@ export function OverviewView({
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendError, setTrendError] = useState<string | null>(null);
   const [deeperOpen, setDeeperOpen] = useState(false);
+  const [dueExpanded, setDueExpanded] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
 
   const trendEnabled = theme.options.overview.trend !== "hidden";
@@ -139,6 +140,7 @@ export function OverviewView({
     (a, b) => a.dueDate.localeCompare(b.dueDate) || a.displayName.localeCompare(b.displayName),
   );
   const nearestEntries = entries.slice(0, 4);
+  const visibleEntries = dueExpanded ? entries : nearestEntries;
   const dueDays = Array.from({ length: overview.upcoming.windowDays }, (_, index) =>
     addDays(overview.upcoming.asOfDate, index),
   );
@@ -222,10 +224,31 @@ export function OverviewView({
   }
 
   const net = overview.balances.netPositionMinor;
-  const hasKnownBalance =
-    overview.balances.cashAccountsWithBalance + overview.balances.cardAccountsWithBalance > 0;
+  const hasKnownBalance = model.usdReportedCount > 0;
+  const cashKnown = totalReported(model.cashStatus);
+  const cardKnown = totalReported(model.cardStatus);
+  const cashDisplay = cashKnown ? formatMoney(overview.balances.cashKnownTotalMinor) : "—";
+  const cardDisplay = cardKnown ? formatMoney(overview.balances.cardKnownTotalMinor) : "—";
+  const beamAria = [
+    cashKnown
+      ? `Known cash ${formatMoney(overview.balances.cashKnownTotalMinor)}`
+      : "Cash not reported",
+    cardKnown
+      ? `card balances ${formatMoney(overview.balances.cardKnownTotalMinor)}`
+      : "card balances not reported",
+  ].join(" and ");
+  const beamNote =
+    model.cashStatus === "not_reported" && model.cardStatus === "not_reported"
+      ? "No balances reported yet"
+      : model.cashStatus === "not_reported"
+        ? "Cash not reported yet"
+        : "Card balances not reported yet";
   const cashShare = model.cashShare;
   const debtShare = cashShare === null ? null : 100 - cashShare;
+  const beamTotalKnownZero =
+    cashKnown &&
+    cardKnown &&
+    overview.balances.cashKnownTotalMinor + overview.balances.cardKnownTotalMinor === 0;
   const asOf = formatDateOnly(overview.upcoming.asOfDate);
   const glanceCash = [...model.cashAccounts].sort(
     (a, b) => (b.currentBalanceMinor ?? -1) - (a.currentBalanceMinor ?? -1),
@@ -298,7 +321,11 @@ export function OverviewView({
               </h2>
               <p className="hero-asof">
                 Cash minus card balances ·{" "}
-                {overview.balances.netPositionComplete ? "complete" : "partial"}
+                {model.netStatus === "complete"
+                  ? "complete"
+                  : model.netStatus === "partial"
+                    ? "partial"
+                    : "Not reported"}
               </p>
             </div>
             <span className="hero-spark" aria-hidden="true">
@@ -318,35 +345,49 @@ export function OverviewView({
           <p className="hero-story">
             {!hasKnownBalance
               ? "No balances reported yet. Add an account or sync a bank to complete the picture."
-              : net < 0
-                ? `${formatMoney(overview.balances.cardKnownTotalMinor)} in card balances against ${formatMoney(
-                    overview.balances.cashKnownTotalMinor,
-                  )} of cash.`
-                : `${formatMoney(overview.balances.cashKnownTotalMinor)} of cash against ${formatMoney(
+              : model.cashStatus === "not_reported"
+                ? `${formatMoney(
                     overview.balances.cardKnownTotalMinor,
-                  )} in card balances.`}
+                  )} in known card balances; cash is not reported yet.`
+                : model.cardStatus === "not_reported"
+                  ? `${formatMoney(
+                      overview.balances.cashKnownTotalMinor,
+                    )} of known cash; card balances are not reported yet.`
+                  : net < 0
+                    ? `${formatMoney(overview.balances.cardKnownTotalMinor)} in card balances against ${formatMoney(
+                        overview.balances.cashKnownTotalMinor,
+                      )} of cash.`
+                    : `${formatMoney(overview.balances.cashKnownTotalMinor)} of cash against ${formatMoney(
+                        overview.balances.cardKnownTotalMinor,
+                      )} in card balances.`}
           </p>
 
           <div className="wealth-beam">
             <div className="wealth-beam-labels">
-              <span className="beam-label beam-label-cash">
+              <span
+                className="beam-label beam-label-cash"
+                title={cashKnown ? undefined : "Cash balance not reported"}
+              >
                 <span className="beam-dot" aria-hidden="true" />
-                Cash <strong>{formatMoney(overview.balances.cashKnownTotalMinor)}</strong>
+                Cash <strong>{cashDisplay}</strong>
               </span>
-              <span className="beam-label beam-label-debt">
-                <strong>{formatMoney(overview.balances.cardKnownTotalMinor)}</strong> card balances
+              <span
+                className="beam-label beam-label-debt"
+                title={cardKnown ? undefined : "Card balances not reported"}
+              >
+                <strong>{cardDisplay}</strong> card balances
                 <span className="beam-dot" aria-hidden="true" />
               </span>
             </div>
             <div
               className={`wealth-beam-track${cashShare === null ? " wealth-beam-unknown" : ""}`}
               role="img"
-              aria-label={`Known cash ${formatMoney(
-                overview.balances.cashKnownTotalMinor,
-              )} and card balances ${formatMoney(overview.balances.cardKnownTotalMinor)}`}
+              aria-label={beamAria}
             >
               {cashShare === null || debtShare === null ? (
-                <span className="wealth-beam-note">No balances reported yet</span>
+                <span className="wealth-beam-note">{beamNote}</span>
+              ) : beamTotalKnownZero ? (
+                <span className="wealth-beam-note">Both sides reported $0.00</span>
               ) : (
                 <>
                   <span className="wealth-beam-cash" style={{ width: `${cashShare}%` }} />
@@ -371,19 +412,24 @@ export function OverviewView({
           <div className="hero-mini-stats">
             <div className="hero-mini">
               <span className="hero-mini-label">Cash on hand</span>
-              <strong>{formatMoney(overview.balances.cashKnownTotalMinor)}</strong>
+              <strong>{cashDisplay}</strong>
               <span className="hero-mini-note">
-                {model.usdCashCount === 0
-                  ? "No cash account yet"
-                  : `${overview.balances.cashAccountsWithBalance} of ${model.usdCashCount} reported`}
+                {model.cashStatus === "not_reported"
+                  ? "Not reported"
+                  : model.usdCashCount === 0
+                    ? "No cash account yet"
+                    : `${model.usdCashReportedCount} of ${model.usdCashCount} reported`}
               </span>
             </div>
             <div className="hero-mini">
               <span className="hero-mini-label">Card balances</span>
-              <strong>{formatMoney(overview.balances.cardKnownTotalMinor)}</strong>
+              <strong>{cardDisplay}</strong>
               <span className="hero-mini-note">
-                {overview.balances.cardAccountsWithBalance} of {model.usdCardCount} USD cards
-                reported
+                {model.cardStatus === "not_reported"
+                  ? "Not reported"
+                  : model.usdCardCount === 0
+                    ? "No cards tracked"
+                    : `${model.usdCardReportedCount} of ${model.usdCardCount} USD cards reported`}
               </span>
             </div>
             <div className="hero-mini">
@@ -618,7 +664,7 @@ export function OverviewView({
             })}
           </ol>
 
-          {nearestEntries.length > 0 ? (
+          {visibleEntries.length > 0 ? (
             <>
               <p className="due-columns" aria-hidden="true">
                 <span>Due</span>
@@ -626,8 +672,8 @@ export function OverviewView({
                 <span>Balance</span>
                 <span>Min</span>
               </p>
-              <ul className="due-list" aria-label="Upcoming payments">
-                {nearestEntries.map((entry: UpcomingEntry, index) => {
+              <ul className="due-list" id="upcoming-payment-list" aria-label="Upcoming payments">
+                {visibleEntries.map((entry: UpcomingEntry, index) => {
                   const account = accountById.get(entry.accountId);
                   const balance = account?.currentBalanceMinor ?? null;
                   return (
@@ -660,6 +706,17 @@ export function OverviewView({
                   );
                 })}
               </ul>
+              {entries.length > nearestEntries.length ? (
+                <button
+                  type="button"
+                  className="link-button due-disclosure"
+                  aria-expanded={dueExpanded}
+                  aria-controls="upcoming-payment-list"
+                  onClick={() => setDueExpanded((value) => !value)}
+                >
+                  {dueExpanded ? "Show fewer" : `Show all ${entries.length} payments`}
+                </button>
+              ) : null}
             </>
           ) : (
             <p className="chart-empty">

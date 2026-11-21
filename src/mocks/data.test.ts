@@ -34,6 +34,27 @@ describe("mock ledger subtotals", () => {
   });
 });
 
+describe("mock demo balances", () => {
+  it("keeps available credit consistent with each card's limit and balance", () => {
+    const dashboard = mockDashboard("demo", "2026-10");
+    const cards = dashboard.overview.accounts.filter(
+      (account) => account.availableCreditMinor !== null,
+    );
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card.availableCreditMinor).toBe(
+        (card.creditLimitMinor ?? 0) - (card.currentBalanceMinor ?? 0),
+      );
+    }
+    const usdCards = cards.filter(
+      (card) => card.currency === "USD" && card.currentBalanceMinor !== null,
+    );
+    expect(usdCards.reduce((sum, card) => sum + (card.availableCreditMinor ?? 0), 0)).toBe(
+      5_050_200,
+    );
+  });
+});
+
 describe("mock spend history", () => {
   it("ends at the current month and reconciles with the dashboard", () => {
     const history = mockSpendHistory();

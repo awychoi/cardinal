@@ -167,6 +167,20 @@ fn demo_dashboard_is_deterministic_and_month_navigation_is_backend_computed() {
     assert_eq!(first.overview.accounts.len(), 12);
     assert!(first.overview.balances.card_known_total_minor > 0);
     assert!(first.overview.balances.card_accounts_missing_balance >= 1);
+    for account in &first.overview.accounts {
+        if let (Some(available), Some(limit), Some(balance)) = (
+            account.available_credit_minor,
+            account.credit_limit_minor,
+            account.current_balance_minor,
+        ) {
+            assert_eq!(
+                available,
+                limit - balance,
+                "{} available credit must be limit minus balance",
+                account.display_name
+            );
+        }
+    }
     assert!(first.account_spend.iter().any(|row| row.currency == "EUR"));
 
     // Pending-only and other months work.

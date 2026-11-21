@@ -684,7 +684,7 @@ function accountCards(): AccountCard[] {
         sourceKind: item.sourceKind,
         connectionStatus: connection?.status ?? null,
         currentBalanceMinor: balance?.minor ?? null,
-        availableCreditMinor: depository || !balance ? null : 500_000,
+        availableCreditMinor: depository || !balance ? null : 1_000_000 - balance.minor,
         creditLimitMinor: depository || !balance ? null : 1_000_000,
         balanceRetrievedAt: balance?.retrieved ?? null,
         balanceProvenance: balance ? "provider" : null,

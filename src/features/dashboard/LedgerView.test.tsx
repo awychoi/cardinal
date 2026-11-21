@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMockBridge, __setMockSettings, __setMockVaultState } from "../../mocks/bridge";
@@ -67,6 +67,56 @@ describe("LedgerView", () => {
 
     expect(await screen.findByText(/No transactions match these filters/)).toBeInTheDocument();
     expect(screen.queryByText(/Latest activity is/)).not.toBeInTheDocument();
+  });
+
+  it("resets pagination and closes details when the month bounds change", async () => {
+    const october = mockDashboard("real", "2026-10");
+    const september = mockDashboard("real", "2026-09");
+    const callbacks = {
+      onClearPreset: vi.fn(),
+      onChanged: vi.fn(),
+      onChangeMonth: vi.fn(),
+    };
+    const view = render(
+      <LedgerView
+        dashboard={october}
+        presetAccountId={null}
+        presetSearch={null}
+        presetNonce={0}
+        readOnly={false}
+        {...callbacks}
+      />,
+    );
+
+    expect((await screen.findAllByText("Whole Foods Market")).length).toBeGreaterThan(0);
+    await userEvent.selectOptions(screen.getByLabelText("Rows per page"), "25");
+    expect(await screen.findByText("Page 1 of 2")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Page 2 of 2")).toBeInTheDocument();
+
+    const firstRow = view.container.querySelector<HTMLElement>(
+      ".ledger-day-group tr:not(.ledger-day-row)",
+    );
+    expect(firstRow).not.toBeNull();
+    await userEvent.click(firstRow as HTMLElement);
+    expect(document.getElementById("detail-title")).toBeInTheDocument();
+
+    view.rerender(
+      <LedgerView
+        dashboard={september}
+        presetAccountId={null}
+        presetSearch={null}
+        presetNonce={0}
+        readOnly={false}
+        {...callbacks}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText("Page 1 of 1")).toBeInTheDocument());
+    expect(document.getElementById("detail-title")).not.toBeInTheDocument();
+    expect(
+      view.container.querySelectorAll(".ledger-day-group tr:not(.ledger-day-row)").length,
+    ).toBeGreaterThan(0);
   });
 
   it("says nothing has synced when the whole ledger is empty", async () => {

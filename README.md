@@ -14,6 +14,7 @@ Built with Tauri 2, React, TypeScript, Rust, and SQLCipher.
 
 - Calendar-month spending across credit cards and bank accounts, kept separate from statement cycles.
 - Card balances, cash balances, and a net position that stay current regardless of the month you're viewing.
+- Missing balances stay unknown — “Not reported”, never `$0.00` — while a reported `$0.00` is a real value.
 - Upcoming card payments, with bank transfers, card payments, and income excluded from spending.
 - Pending, posted, refunds, fees, payments, and transfers are distinct states.
 - An encrypted ledger, unlocked with a passphrase typed into a native macOS sheet.

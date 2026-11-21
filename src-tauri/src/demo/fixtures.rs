@@ -400,14 +400,17 @@ pub fn seed(conn: &Connection) -> AppResult<DemoManifest> {
                 .unwrap_or_else(|| "23".into())
         );
         let currency = ACCOUNTS[*account].3;
+        let credit_limit = 1_000_000;
         conn.execute(
             "INSERT INTO balance_snapshots (id, account_id, current_balance_minor, available_credit_minor, \
                 credit_limit_minor, currency, retrieved_at, provider_as_of, provenance, source_connection_id) \
-             VALUES (?1, ?2, ?3, 500000, 1000000, ?4, ?5, ?5, 'provider', NULL)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, 'provider', NULL)",
             rusqlite::params![
                 uuid::Uuid::new_v4().to_string(),
                 account_id(*account),
                 balance,
+                credit_limit - balance,
+                credit_limit,
                 currency,
                 retrieved
             ],

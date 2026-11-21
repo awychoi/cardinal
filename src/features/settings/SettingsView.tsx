@@ -9,7 +9,7 @@ import {
 import { friendlyError } from "../../lib/bridge/errors";
 import { Button } from "../../components/Button";
 import { ThemePicker } from "../../components/ThemePicker";
-import { MakerCard } from "../../components/MadeBy";
+import { MakerLink } from "../../components/MadeBy";
 import { TimezoneSelect } from "../../components/TimezoneSelect";
 import {
   detectTimeZone,
@@ -533,10 +533,12 @@ export function SettingsView({
           {active === "about" ? (
             <section className="panel panel-wide" aria-labelledby="about-title">
               <h2 id="about-title">About</h2>
-              <MakerCard />
               <p className="fine-print">
                 Cardinal is a local-first, single-user encrypted ledger. There is no server
                 component and no telemetry.
+              </p>
+              <p className="about-maker">
+                Made by Wai Yin Choi · New York · <MakerLink />
               </p>
               {vault.security ? (
                 <dl className="facts">

@@ -14,8 +14,9 @@ architecture, type scale, colour application, layouts, charts, and copy — was 
   for saved preferences and the Rust default). Cream paper, warm near-black ink, a cardinal-red
   pencil, and a serif display face give the app a printed-almanac character rather than a generic
   fintech surface.
-- **One expressive moment.** The dark **A quick read** card is deliberately the loudest object on
-  the page. It translates the numbers into plain language instead of adding another table.
+- **One expressive moment.** The theme-reactive **A quick read** card is deliberately the loudest
+  object on the page. Warm paper with an accent edge in light mode, an ink-like surface in dark
+  mode. It translates the numbers into plain language instead of adding another table.
 - **Bank accounts as first-class.** Cash has its own colour, iconography, passbook-like tiles, and
   a place above cards. Cards remain fully represented, but they are the borrowed side of the same
   balance sheet, not the whole product.
@@ -47,8 +48,8 @@ balances never become zero: the headline and sides show **Not reported** instead
 
 A small set of derived sentences (cash cushion, card debt versus cash, upcoming payments, pace,
 top category) using only figures already on the dashboard. It is labeled as an estimate, not
-financial advice. In dark mode the card keeps an elevated ink surface and an accent edge so it
-stays a distinct object.
+financial advice. The card follows the selected theme and mode: warm paper in light mode, an
+elevated ink surface in dark mode, always with a cardinal accent edge.
 
 ### Coming up
 
@@ -84,6 +85,9 @@ dashboard.
   called “so far.”
 - **No fake precision.** Cash cushion and pace are labeled estimates based on posted activity; a
   month with no ledger rows is “No data,” not a confirmed zero.
+- **Warnings can be dismissed without hiding the data.** A missing-balance warning can be dismissed
+  for the session (and restored from the deeper picture); the account itself still shows
+  “Not reported” so the underlying state remains visible.
 
 ## Accessibility
 

@@ -27,21 +27,32 @@
 }
 
 .attention-strip {
-  align-items: center;
+  align-items: stretch;
   background: var(--warning-soft);
   border: var(--border-width) solid var(--warning-line);
   border-radius: var(--radius-panel);
   color: var(--text);
-  cursor: pointer;
   display: flex;
-  gap: 12px;
-  padding: 10px 14px;
-  text-align: left;
+  overflow: hidden;
   width: 100%;
 }
 
 .attention-strip:hover {
   border-color: var(--warning);
+}
+
+.attention-strip-main {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 14px;
+  text-align: left;
 }
 
 .attention-strip-mark {
@@ -83,6 +94,30 @@
   letter-spacing: 0.04em;
   margin-left: auto;
   text-transform: uppercase;
+}
+
+.attention-strip-dismiss {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-left: var(--border-width) solid var(--warning-line);
+  color: var(--warning);
+  cursor: pointer;
+  display: flex;
+  flex: none;
+  font-size: 19px;
+  justify-content: center;
+  line-height: 1;
+  width: 40px;
+}
+
+.attention-strip-dismiss:hover {
+  background: color-mix(in srgb, var(--warning) 13%, transparent);
+  color: var(--text);
+}
+
+.attention-strip-dismiss:focus-visible {
+  outline-offset: -4px;
 }
 
 .wealth-grid {
@@ -382,39 +417,25 @@
 /* The "quick read" is the one dark card in the app: a short, hand-written
    interpretation of the numbers rather than another dataset. */
 .quick-read {
-  --qr-ink: var(--bg);
-  --qr-muted: color-mix(in srgb, var(--bg) 64%, transparent);
-  --qr-line: color-mix(in srgb, var(--bg) 17%, transparent);
-  --qr-accent: color-mix(in srgb, var(--accent) 38%, var(--bg));
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--qr-ink);
+  --qr-ink: var(--text);
+  --qr-muted: var(--muted);
+  --qr-line: var(--border);
+  --qr-accent: var(--accent-ink);
+  background: linear-gradient(
+    152deg,
+    color-mix(in srgb, var(--accent) 8%, var(--surface)),
+    var(--surface) 58%
+  );
+  border-color: var(--border-strong);
+  border-left: 3px solid var(--accent);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
   display: flex;
   flex-direction: column;
   gap: 12px;
   grid-column: span 5;
   padding: 22px;
   position: relative;
-}
-
-/* In dark mode the card needs to read as an elevated ink object, not another
-   grey panel: a lifted warm surface with a one-pixel accent rule on two edges. */
-:root[data-theme="dark"] .quick-read {
-  --qr-ink: var(--text);
-  --qr-muted: var(--muted);
-  --qr-line: var(--border);
-  --qr-accent: var(--accent-ink);
-  background-color: var(--surface-2);
-  background-image: linear-gradient(
-    152deg,
-    color-mix(in srgb, var(--text) 6%, var(--surface-2)),
-    color-mix(in srgb, var(--surface-2) 92%, var(--bg)) 62%
-  );
-  border-color: var(--border-strong);
-  border-left-color: color-mix(in srgb, var(--accent) 72%, var(--border-strong));
-  border-top-color: color-mix(in srgb, var(--accent) 72%, var(--border-strong));
-  box-shadow: var(--shadow-2);
-  color: var(--text);
 }
 
 .quick-read > * {
@@ -431,10 +452,6 @@
   right: 22px;
   width: 92px;
   z-index: 0;
-}
-
-:root[data-theme="dark"] .quick-read-watermark {
-  opacity: 0.1;
 }
 
 .quick-read-head {
@@ -1338,6 +1355,50 @@
 
 .attention-item .btn {
   flex-shrink: 0;
+}
+
+.attention-actions {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.attention-dismiss {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  font-size: 16px;
+  height: 28px;
+  line-height: 1;
+  place-items: center;
+  width: 28px;
+}
+
+.attention-dismiss:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.attention-dismissed {
+  align-items: baseline;
+  border-top: 1px dashed var(--border);
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 10.5px;
+  gap: 4px 8px;
+  margin: 2px 0 0;
+  padding-top: 7px;
+}
+
+.attention-dismissed .link-button {
+  color: var(--accent-ink);
+  font-size: 10.5px;
 }
 
 .month-details {

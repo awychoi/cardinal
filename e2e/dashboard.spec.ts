@@ -24,6 +24,24 @@ test.describe("read-only dashboard (browser mock)", () => {
     await expect(page.getByRole("list", { name: "Utilization by card" })).toBeVisible();
   });
 
+  test("A quick read follows the light and dark theme", async ({ page }) => {
+    await openUnlocked(page);
+    const quick = page.locator(".quick-read");
+    const lightStyle = await quick.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return `${style.backgroundColor}|${style.backgroundImage}|${style.color}`;
+    });
+    await page.getByRole("button", { name: /Appearance:/ }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.getByRole("button", { name: /Appearance: Light/ }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    const darkStyle = await quick.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return `${style.backgroundColor}|${style.backgroundImage}|${style.color}`;
+    });
+    expect(darkStyle).not.toBe(lightStyle);
+  });
+
   test("theme switch swaps ranked bars for the ring without a reload", async ({ page }) => {
     await openUnlocked(page);
     await expect(page.getByRole("list", { name: "Spending by category" })).toBeVisible();

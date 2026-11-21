@@ -14,6 +14,14 @@ test.describe("secure shell (browser mock)", () => {
     expect(await page.locator("input[type='password']").count()).toBe(0);
   });
 
+  test("keeps the locked gate to one quiet card", async ({ page }) => {
+    await openLocked(page);
+    await expect(page.locator(".vault-scene")).toHaveCount(0);
+    await expect(page.locator(".vault-card")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Unlock vault" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open demo (synthetic data)" })).toBeVisible();
+  });
+
   test("renders the app identity and honest empty state after unlock", async ({ page }) => {
     await openUnlocked(page);
     await expect(page.getByText("Mock desktop bridge")).toBeVisible();

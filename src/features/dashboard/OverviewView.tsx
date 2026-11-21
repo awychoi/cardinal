@@ -102,6 +102,9 @@ export function OverviewView({
   onOpenSettings,
   onOpenTransactions,
   onOpenAccount,
+  dismissedMissingBalance = false,
+  onDismissMissingBalance,
+  onRestoreMissingBalance,
 }: {
   dashboard: Dashboard;
   theme: Theme;
@@ -111,6 +114,9 @@ export function OverviewView({
   onOpenSettings: () => void;
   onOpenTransactions: () => void;
   onOpenAccount?: (accountId: string) => void;
+  dismissedMissingBalance?: boolean;
+  onDismissMissingBalance?: () => void;
+  onRestoreMissingBalance?: () => void;
 }) {
   const { summary, overview } = dashboard;
   const [history, setHistory] = useState<SpendHistory | null>(null);
@@ -212,7 +218,7 @@ export function OverviewView({
       onAction: onOpenAccounts,
     });
   }
-  if (model.missingBalances > 0) {
+  if (model.missingBalances > 0 && !dismissedMissingBalance) {
     attention.push({
       id: "missing",
       title: `${model.missingBalances} account${model.missingBalances === 1 ? " is" : "s are"} missing a balance`,
@@ -429,22 +435,35 @@ export function OverviewView({
       </header>
 
       {visibleAttention.length > 0 ? (
-        <button type="button" className="attention-strip" onClick={revealDetails}>
-          <span className="attention-strip-mark" aria-hidden="true">
-            !
-          </span>
-          <span className="attention-strip-copy">
-            <strong>{visibleAttention[0].title}</strong>
-            <span>
-              {visibleAttention.length > 1
-                ? `${attention.length - 1} more item${
-                    attention.length - 1 === 1 ? "" : "s"
-                  } worth a look.`
-                : "One small thing worth a look."}
+        <div className="attention-strip">
+          <button type="button" className="attention-strip-main" onClick={revealDetails}>
+            <span className="attention-strip-mark" aria-hidden="true">
+              !
             </span>
-          </span>
-          <span className="attention-strip-cta">Review →</span>
-        </button>
+            <span className="attention-strip-copy">
+              <strong>{visibleAttention[0].title}</strong>
+              <span>
+                {visibleAttention.length > 1
+                  ? `${attention.length - 1} more item${
+                      attention.length - 1 === 1 ? "" : "s"
+                    } worth a look.`
+                  : "One small thing worth a look."}
+              </span>
+            </span>
+            <span className="attention-strip-cta">Review →</span>
+          </button>
+          {visibleAttention[0].id === "missing" && onDismissMissingBalance ? (
+            <button
+              type="button"
+              className="attention-strip-dismiss"
+              aria-label="Dismiss missing-balance warning"
+              title="Dismiss this warning"
+              onClick={onDismissMissingBalance}
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="wealth-grid">
@@ -685,7 +704,7 @@ export function OverviewView({
               <button type="button" className="link-button" onClick={revealDetails}>
                 The numbers behind this →
               </button>
-              {attention.length === 0 && hasKnownBalance ? (
+              {attention.length === 0 && hasKnownBalance && !dismissedMissingBalance ? (
                 <span className="quiet-status">
                   <span className="dot dot-success" aria-hidden="true" /> Everything reported looks
                   current
@@ -1098,19 +1117,45 @@ export function OverviewView({
                         <span className="attention-title">{item.title}</span>
                         <span className="attention-detail">{item.detail}</span>
                       </div>
-                      {item.actionLabel && item.onAction ? (
-                        <Button variant="ghost" className="btn-small" onClick={item.onAction}>
-                          {item.actionLabel}
-                        </Button>
-                      ) : null}
+                      <div className="attention-actions">
+                        {item.actionLabel && item.onAction ? (
+                          <Button variant="ghost" className="btn-small" onClick={item.onAction}>
+                            {item.actionLabel}
+                          </Button>
+                        ) : null}
+                        {item.id === "missing" && onDismissMissingBalance ? (
+                          <button
+                            type="button"
+                            className="attention-dismiss"
+                            aria-label="Dismiss missing-balance warning"
+                            title="Dismiss this warning"
+                            onClick={onDismissMissingBalance}
+                          >
+                            ×
+                          </button>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p className="quiet-status">
-                  <span className="dot dot-success" aria-hidden="true" /> Nothing needs attention.
+                  <span className="dot dot-success" aria-hidden="true" />{" "}
+                  {dismissedMissingBalance
+                    ? "Nothing else needs attention."
+                    : "Nothing needs attention."}
                 </p>
               )}
+              {dismissedMissingBalance ? (
+                <p className="attention-dismissed">
+                  Missing-balance warning dismissed for this session.
+                  {onRestoreMissingBalance ? (
+                    <button type="button" className="link-button" onClick={onRestoreMissingBalance}>
+                      Restore
+                    </button>
+                  ) : null}
+                </p>
+              ) : null}
             </section>
 
             <UtilizationPanel

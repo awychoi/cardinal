@@ -21,21 +21,6 @@ export function MakerLink() {
   );
 }
 
-/** The personal mark, name and site. Canonical in Settings → About. */
-export function MakerCard() {
-  return (
-    <div className="maker-card">
-      <img className="maker-logo" src={makerLogoUrl} alt="" draggable={false} />
-      <div>
-        <div className="maker-name">Made by Wai Yin Choi</div>
-        <div className="maker-meta">
-          New York · <MakerLink />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /** A one-line credit for the gate and the app footer. */
 export function MakerLine({
   className = "",

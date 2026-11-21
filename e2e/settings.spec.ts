@@ -60,11 +60,12 @@ test.describe("settings sections (browser mock)", () => {
 
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.getByRole("button", { name: "About", exact: true }).click();
-    const card = page.locator(".maker-card");
-    await expect(card).toContainText("Made by Wai Yin Choi");
-    await expect(card).toContainText("New York");
-    await expect(card.locator("img")).toHaveCount(1);
-    await expect(card.getByRole("button", { name: "wychoi.com" })).toBeVisible();
+    const creditLine = page.locator(".about-maker");
+    await expect(creditLine).toContainText("Made by Wai Yin Choi");
+    await expect(creditLine).toContainText("New York");
+    await expect(creditLine.locator("img")).toHaveCount(0);
+    await expect(creditLine.getByRole("button", { name: "wychoi.com" })).toBeVisible();
+    await expect(page.locator(".maker-card")).toHaveCount(0);
   });
 
   test("detects and persists a reporting timezone from the friendly dropdown", async ({ page }) => {

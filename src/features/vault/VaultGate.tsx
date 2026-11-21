@@ -4,7 +4,6 @@ import { friendlyError } from "../../lib/bridge/errors";
 import { Button } from "../../components/Button";
 import { BrandLogo } from "../../components/BrandLogo";
 import { MakerLine } from "../../components/MadeBy";
-import { brandMarkFor } from "../../brand/logos";
 import { RestoreBackupFlow } from "../settings/RestoreBackupFlow";
 import type { ThemeMode } from "../../theme/schema";
 
@@ -109,34 +108,6 @@ export function VaultGate({
 
   return (
     <main className="vault-gate" aria-labelledby="vault-title">
-      <aside className="vault-scene" aria-hidden="true">
-        <div className="vault-scene-orbit">
-          <span className="vault-scene-ring vault-scene-ring-a" />
-          <span className="vault-scene-ring vault-scene-ring-b" />
-          <img src={brandMarkFor(mode)} alt="" draggable={false} />
-        </div>
-        <p className="vault-scene-kicker">Wealth, in focus</p>
-        <p className="vault-scene-title">
-          Own and owe,
-          <br />
-          without the noise.
-        </p>
-        <p className="vault-scene-copy">
-          Bank accounts and cards, cash and debt, this month and the bigger picture — one quiet,
-          encrypted ledger on this Mac.
-        </p>
-        <ul className="vault-principles">
-          <li>
-            <span>01</span> Bank accounts and cards as equals
-          </li>
-          <li>
-            <span>02</span> Curated numbers, deeper on demand
-          </li>
-          <li>
-            <span>03</span> No account, no cloud, no telemetry
-          </li>
-        </ul>
-      </aside>
       <div className="vault-card">
         <div className="vault-brand">
           <BrandLogo mode={mode} />
@@ -258,7 +229,7 @@ export function VaultGate({
         ) : null}
 
         <div className="vault-maker">
-          <MakerLine />
+          <MakerLine withLogo={false} />
         </div>
       </div>
       <span className="sr-only">{notice ?? ""}</span>

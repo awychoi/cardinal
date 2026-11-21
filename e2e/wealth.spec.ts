@@ -26,6 +26,31 @@ test.describe("wealth view (browser mock)", () => {
     await expect(page.getByRole("heading", { name: "Card accounts" })).toBeVisible();
   });
 
+  test("a missing-balance warning can be dismissed and restored for the session", async ({
+    page,
+  }) => {
+    await openUnlocked(page);
+    await page.locator(".wealth-details > summary").click();
+    const attention = page.locator(".overview-attention");
+    await expect(attention.getByText("1 account is missing a balance")).toBeVisible();
+    await attention.getByRole("button", { name: "Dismiss missing-balance warning" }).click();
+    await expect(attention.getByText("1 account is missing a balance")).toHaveCount(0);
+    await expect(
+      attention.getByText(/Missing-balance warning dismissed for this session/),
+    ).toBeVisible();
+
+    await page.locator(".wealth-details > summary").click();
+    await openPrimaryView(page, "Accounts");
+    await openPrimaryView(page, "Overview");
+    await page.locator(".wealth-details > summary").click();
+    await expect(
+      attention.getByText(/Missing-balance warning dismissed for this session/),
+    ).toBeVisible();
+
+    await attention.getByRole("button", { name: "Restore" }).click();
+    await expect(attention.getByText("1 account is missing a balance")).toBeVisible();
+  });
+
   test("deeper numbers stay one disclosure away", async ({ page }) => {
     await openUnlocked(page);
     const summary = page.locator(".wealth-details > summary");

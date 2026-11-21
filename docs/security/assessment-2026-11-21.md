@@ -496,7 +496,19 @@ overclaims train users to trust controls that do not hold.
 - This assessment is not a penetration test and does not cover WebKit/AppKit zero-days, kernel
   attacks, physical attacks, or a compromised Plaid/bank.
 
-## 8. Bottom line
+## 8. References
+
+- ScreenCaptureKit and legacy sharing-none behavior:
+  [Tauri issue #14200](https://github.com/tauri-apps/tauri/issues/14200) and
+  [Apple Developer Forums thread 792152](https://developer.apple.com/forums/thread/792152).
+- macOS file-based versus data-protection Keychain:
+  [Apple Developer Forums thread 691213](https://developer.apple.com/forums/thread/691213) and
+  [`kSecUseDataProtectionKeychain`](https://developer.apple.com/documentation/security/ksecusedataprotectionkeychain).
+- SQLCipher/SQLite advisory:
+  [RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459) /
+  [CVE-2026-119375](https://www.cve.org/CVERecord?id=CVE-2026-119375).
+
+## 9. Bottom line
 
 Cardinal's cryptographic core and renderer boundary are credible and clearly built with care. The
 gap is not "the encryption is fake"; the gap is that the **build integrity and a few surrounding

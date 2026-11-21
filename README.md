@@ -8,7 +8,7 @@ Mac — no account, no cloud, no telemetry.
 
 Built with Tauri 2, React, TypeScript, Rust, and SQLCipher.
 
-![Cardinal overview in the Almanac theme, dark mode, showing net position, cash and card balances, a plain-language quick read, and upcoming card payments for synthetic demo data](docs/design/app-almanac-overview-dark.png)
+![Cardinal overview in the Almanac theme, dark mode, showing net position, cash and card balances, a plain-language quick read, and upcoming card payments for synthetic demo data](docs/design/app-arcade-overview-dark.png)
 
 ## What it does
 

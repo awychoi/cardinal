@@ -43,7 +43,7 @@ them.
 4. Click **Add … credentials…** and enter the Client ID and matching secret in the native AppKit
    sheet.
    - Each environment has separate generic-password Keychain items under service
-     `com.awychoi.cardiganmoney.plaid` (legacy service name).
+     `com.awychoi.cardinal.plaid`.
    - `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`; `kSecAttrSynchronizable=false`.
    - Never stored in SQLCipher, settings, exports, logs, URLs, or renderer state.
    - Sandbox and Production secrets are never mixed. Each connection records its environment.

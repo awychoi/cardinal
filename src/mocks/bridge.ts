@@ -160,7 +160,7 @@ function vaultState(): VaultState {
 const appInfo = {
   name: "Cardinal" as const,
   version: "0.1.0",
-  bundleIdentifier: "com.awychoi.cardiganmoney" as const,
+  bundleIdentifier: "com.awychoi.cardinal" as const,
   platform: "browser-mock",
   apiVersion: 1 as const,
   demoAvailable: true,

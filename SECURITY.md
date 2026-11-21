@@ -15,6 +15,7 @@ Cardinal is a local, single-user, encrypted macOS app. It is not a hosted servic
 | Lock lifecycle | Manual Lock Now, screen lock, sleep, fast user switching, logout, quit, and idle timeout (default 15 minutes) close the DB and zeroize keys |
 | Provider secrets | macOS Keychain only (`WhenUnlockedThisDeviceOnly`, non-synchronizable); never in the ledger, backups, exports, logs, or renderer |
 | Backups | Self-contained authenticated containers (encrypted DB + wrapped DEK header); restore always asks for the passphrase |
+| Identifier migration | One-shot move of the pre-rename app-data directory, copy-and-retire of the Keychain item, and read-only acceptance of the legacy backup seal |
 | Files | 0700 directories, 0600 files, symlink rejection, atomic writes |
 | Network | Rust-only client, TLS verification, HTTPS-only, no redirects, exact `*.plaid.com` allowlist, response caps; the renderer has no network source at all |
 | Audit trail | Encrypted `security_events` (unlock failures, lock, backup/restore/export, rekey, credential changes, integrity failure, single-instance rejection) |

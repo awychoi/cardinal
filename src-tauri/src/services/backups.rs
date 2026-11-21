@@ -126,15 +126,38 @@ impl std::fmt::Debug for BackupHeader {
     }
 }
 
-fn seal_key(dek: &LockedKey) -> AppResult<LockedKey> {
+const BACKUP_SEAL_DOMAIN: &[u8] = b"cardinal backup seal v1";
+
+fn seal_key_with_domain(domain: &[u8], dek: &LockedKey) -> AppResult<LockedKey> {
     let mut hasher = Sha256::new();
-    // Legacy domain separator, retained verbatim so backups made before the
-    // Cardinal rename still verify. This is a data-format identifier, not
-    // branding; changing it would make every existing backup unverifiable.
-    hasher.update(b"cardigan_money backup seal v1");
+    hasher.update(domain);
     hasher.update(dek.expose());
     let bytes = hasher.finalize();
     LockedKey::from_slice(&bytes)
+}
+
+fn seal_key(dek: &LockedKey) -> AppResult<LockedKey> {
+    seal_key_with_domain(BACKUP_SEAL_DOMAIN, dek)
+}
+
+/// Accept both the Cardinal seal and the pre-rename seal. New backups are
+/// written with `seal_key`; old containers remain restorable after the rename.
+fn verify_seal_bytes(
+    dek: &LockedKey,
+    nonce: &[u8; 24],
+    aad: &[u8],
+    tag: &[u8; 16],
+) -> AppResult<()> {
+    if crypto::open_sealed(&seal_key(dek)?, nonce, aad, tag).is_ok() {
+        return Ok(());
+    }
+    crypto::open_sealed(
+        &seal_key_with_domain(crate::legacy::BACKUP_SEAL_DOMAIN, dek)?,
+        nonce,
+        aad,
+        tag,
+    )?;
+    Ok(())
 }
 
 fn now_unix() -> i64 {
@@ -237,13 +260,7 @@ impl BackupHeader {
     }
 
     pub(crate) fn verify_seal(&self, dek: &LockedKey) -> AppResult<()> {
-        crypto::open_sealed(
-            &seal_key(dek)?,
-            &self.seal_nonce,
-            &self.aad(),
-            &self.seal_tag,
-        )?;
-        Ok(())
+        verify_seal_bytes(dek, &self.seal_nonce, &self.aad(), &self.seal_tag)
     }
 }
 
@@ -1335,5 +1352,26 @@ mod tests {
         ] {
             assert_eq!(BackupKind::from_code(kind.code()).unwrap(), kind);
         }
+    }
+
+    #[test]
+    fn legacy_backup_seals_still_verify() {
+        let dek = LockedKey::generate().unwrap();
+        let nonce = crypto::random_array::<24>().unwrap();
+        let aad = b"backup header";
+        let legacy = seal_key_with_domain(crate::legacy::BACKUP_SEAL_DOMAIN, &dek).unwrap();
+        let legacy_tag = crypto::seal(&legacy, &nonce, aad, b"").unwrap();
+        let mut legacy_tag: [u8; 16] = legacy_tag.try_into().unwrap();
+        assert!(verify_seal_bytes(&dek, &nonce, aad, &legacy_tag).is_ok());
+
+        let current = seal_key(&dek).unwrap();
+        assert!(crypto::open_sealed(&current, &nonce, aad, &legacy_tag).is_err());
+        let current_tag = crypto::seal(&current, &nonce, aad, b"").unwrap();
+        let current_tag: [u8; 16] = current_tag.try_into().unwrap();
+        assert!(verify_seal_bytes(&dek, &nonce, aad, &current_tag).is_ok());
+        assert!(verify_seal_bytes(&dek, &nonce, b"other aad", &legacy_tag).is_err());
+
+        legacy_tag[0] ^= 1;
+        assert!(verify_seal_bytes(&dek, &nonce, aad, &legacy_tag).is_err());
     }
 }

@@ -48,7 +48,7 @@ describe("Tauri security baseline", () => {
     expect(config.app.security.assetProtocol.enable).toBe(false);
     expect(config.app.security.dangerousDisableAssetCspModification).toBe(false);
     expect(config.app.security.capabilities).toEqual(["main-window"]);
-    expect(config.identifier).toBe("com.awychoi.cardiganmoney");
+    expect(config.identifier).toBe("com.awychoi.cardinal");
     expect(config.productName).toBe("Cardinal");
   });
 

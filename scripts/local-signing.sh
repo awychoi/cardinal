@@ -20,7 +20,7 @@
 set -eu
 
 IDENTITY="${CARDINAL_SIGN_IDENTITY:-Cardinal Local}"
-BUNDLE_ID="${CARDINAL_BUNDLE_ID:-com.awychoi.cardiganmoney}"
+BUNDLE_ID="${CARDINAL_BUNDLE_ID:-com.awychoi.cardinal}"
 APP="${1:-src-tauri/target/release/bundle/macos/Cardinal.app}"
 KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
 

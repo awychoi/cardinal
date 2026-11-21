@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{AppError, AppResult};
 use crate::security::crypto::SecretString;
 
-pub const KEYCHAIN_SERVICE: &str = "com.awychoi.cardiganmoney.plaid";
+pub const KEYCHAIN_SERVICE: &str = "com.awychoi.cardinal.plaid";
 
 #[cfg(target_os = "macos")]
 extern "C" {
@@ -114,6 +114,11 @@ pub(crate) trait ItemBackend: Send + Sync {
     /// Account names stored for the service whose name starts with `prefix`.
     /// Used only to migrate items written by an older build.
     fn accounts_with_prefix(&self, prefix: &str) -> AppResult<Vec<String>>;
+    /// Copy the previous service's item(s) to the current service once.
+    /// Stateless/test stores have nothing to migrate.
+    fn migrate_service(&self) -> AppResult<()> {
+        Ok(())
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -134,6 +139,10 @@ impl ItemBackend for KeychainBackend {
 
     fn accounts_with_prefix(&self, prefix: &str) -> AppResult<Vec<String>> {
         keychain_accounts_with_prefix(KEYCHAIN_SERVICE, prefix)
+    }
+
+    fn migrate_service(&self) -> AppResult<()> {
+        migrate_legacy_service()
     }
 }
 
@@ -208,6 +217,9 @@ impl<B: ItemBackend> DocumentStore<B> {
     }
 
     fn load(&self) -> AppResult<BTreeMap<String, SecretString>> {
+        // One-shot move from the pre-rename service. This is a no-op once the
+        // current service has an item, including after a denied/failed copy.
+        self.backend.migrate_service()?;
         if let Some(raw) = self.backend.read(CONSOLIDATED_ACCOUNT)? {
             return parse_document(&raw);
         }
@@ -342,6 +354,90 @@ impl<B: ItemBackend> CredentialStore for DocumentStore<B> {
 
 /// The production credential store: one Keychain item for every Plaid secret.
 pub(crate) type KeychainStore = DocumentStore<KeychainBackend>;
+
+/// Validate a pre-rename consolidated document, or build the consolidated
+/// document from the older one-item-per-account layout. The raw document is
+/// copied only after validation; a malformed legacy item fails closed instead
+/// of silently starting empty.
+#[cfg(any(target_os = "macos", test))]
+fn legacy_document(
+    consolidated: Option<&str>,
+    items: BTreeMap<String, String>,
+) -> AppResult<Option<String>> {
+    if let Some(raw) = consolidated {
+        parse_document(raw)?;
+        return Ok(Some(raw.to_string()));
+    }
+    if items.is_empty() {
+        return Ok(None);
+    }
+    let document = StoredDocument {
+        v: DOCUMENT_VERSION,
+        items,
+    };
+    let raw = serde_json::to_string(&document).map_err(|_| AppError::Keychain)?;
+    // Validate the generated document before writing it. A malformed legacy
+    // item must fail closed while the old item is still the only copy.
+    parse_document(&raw)?;
+    Ok(Some(raw))
+}
+
+#[cfg(target_os = "macos")]
+fn remove_legacy_service_items() {
+    let _ = keychain_delete(crate::legacy::KEYCHAIN_SERVICE, CONSOLIDATED_ACCOUNT);
+    for account in PLAID_CLIENT_ACCOUNTS {
+        let _ = keychain_delete(crate::legacy::KEYCHAIN_SERVICE, account);
+    }
+    if let Ok(accounts) =
+        keychain_accounts_with_prefix(crate::legacy::KEYCHAIN_SERVICE, TOKEN_ACCOUNT_PREFIX)
+    {
+        for account in accounts {
+            let _ = keychain_delete(crate::legacy::KEYCHAIN_SERVICE, &account);
+        }
+    }
+}
+
+/// Move the previous service's item(s) to `KEYCHAIN_SERVICE` exactly once.
+///
+/// The consolidated item is copied verbatim after validation. Older builds
+/// that wrote one item per account are folded into a new consolidated document.
+/// The old items are deleted only after the new item is written, so a denied
+/// prompt or failed write leaves the only copy intact.
+#[cfg(target_os = "macos")]
+fn migrate_legacy_service() -> AppResult<()> {
+    if keychain_get(KEYCHAIN_SERVICE, CONSOLIDATED_ACCOUNT)?.is_some() {
+        return Ok(());
+    }
+
+    let consolidated = keychain_get(crate::legacy::KEYCHAIN_SERVICE, CONSOLIDATED_ACCOUNT)?;
+    let mut items = BTreeMap::new();
+    if consolidated.is_none() {
+        for account in PLAID_CLIENT_ACCOUNTS {
+            if let Some(value) = keychain_get(crate::legacy::KEYCHAIN_SERVICE, account)? {
+                items.insert((*account).to_string(), value);
+            }
+        }
+        for account in
+            keychain_accounts_with_prefix(crate::legacy::KEYCHAIN_SERVICE, TOKEN_ACCOUNT_PREFIX)?
+        {
+            if let Some(value) = keychain_get(crate::legacy::KEYCHAIN_SERVICE, &account)? {
+                items.insert(account, value);
+            }
+        }
+    }
+
+    let Some(raw) = legacy_document(consolidated.as_deref(), items)? else {
+        return Ok(());
+    };
+    keychain_put(KEYCHAIN_SERVICE, CONSOLIDATED_ACCOUNT, raw.as_bytes())?;
+    remove_legacy_service_items();
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn migrate_legacy_service() -> AppResult<()> {
+    Ok(())
+}
 
 #[cfg(target_os = "macos")]
 fn keychain_put(service: &str, account: &str, value: &[u8]) -> AppResult<()> {
@@ -812,6 +908,30 @@ mod tests {
                 .expose(),
             "access"
         );
+    }
+
+    #[test]
+    fn legacy_service_document_is_copied_or_built_and_fails_closed() {
+        let valid = r#"{"v":1,"items":{"plaid-secret-production":"s"}}"#;
+        assert_eq!(
+            legacy_document(Some(valid), std::collections::BTreeMap::new())
+                .unwrap()
+                .as_deref(),
+            Some(valid)
+        );
+        assert!(legacy_document(Some("not json"), std::collections::BTreeMap::new()).is_err());
+
+        let mut items = std::collections::BTreeMap::new();
+        items.insert(ACCOUNT_SECRET_PRODUCTION.to_string(), "secret".to_string());
+        let raw = legacy_document(None, items).unwrap().unwrap();
+        let parsed = parse_document(&raw).unwrap();
+        assert_eq!(
+            parsed.get(ACCOUNT_SECRET_PRODUCTION).unwrap().expose(),
+            "secret"
+        );
+        assert!(legacy_document(None, std::collections::BTreeMap::new())
+            .unwrap()
+            .is_none());
     }
 
     #[test]

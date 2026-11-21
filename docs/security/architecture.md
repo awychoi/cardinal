@@ -170,7 +170,7 @@ Self-contained authenticated snapshot: 256-byte header + SQLCipher database byte
 
 ## 8. Keychain
 
-- Service `com.awychoi.cardiganmoney.plaid` (legacy identifier, retained for Keychain continuity); **one** generic-password item, `plaid-credentials-v1`, holds every app-managed secret: the Sandbox and Trial/Production client ID/secret pairs as separate keys (so environments cannot mix), and one access token key per connection.
+- Service `com.awychoi.cardinal.plaid`; **one** generic-password item, `plaid-credentials-v1`, holds every app-managed secret: the Sandbox and Trial/Production client ID/secret pairs as separate keys (so environments cannot mix), and one access token key per connection. The previous service is read once, copied to this service, and retired after a successful write; a denied prompt or failed copy leaves the old item intact.
 - Attributes: `kSecAttrSynchronizable=false`, and `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` on creation. **The item lives in the login (file-based) Keychain** — the build does not request the data-protection Keychain (`kSecUseDataProtectionKeychain`), so the accessibility class is not what protects it: the login keychain's lock state is. Moving the credentials to the data-protection Keychain is a separate change with its own migration.
 - The document item carries no label; its keys are the app's own account names (`plaid-client-id-production`, …) and one `plaid-access-token-<local UUID>` per connection — no account numbers or masks.
 - Tokens are loaded only for the duration of a Rust request and zeroized after use. They are never included in backups, exports, logs, errors, or renderer state.

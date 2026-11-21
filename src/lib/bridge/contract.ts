@@ -19,7 +19,7 @@ export const zAppInfo = z
   .object({
     name: z.literal("Cardinal"),
     version: z.string().min(1).max(32),
-    bundleIdentifier: z.literal("com.awychoi.cardiganmoney"),
+    bundleIdentifier: z.literal("com.awychoi.cardinal"),
     platform: z.string().min(1).max(32),
     apiVersion: z.literal(1),
     vaultExists: z.boolean(),

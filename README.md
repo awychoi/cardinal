@@ -44,9 +44,14 @@ pnpm tauri:build
 open src-tauri/target/release/bundle/macos/Cardinal.app
 ```
 
-The display name and bundle are Cardinal. The bundle identifier remains
-`com.awychoi.cardiganmoney`, and the Keychain service and backup seal keep their legacy values, so
-existing vaults, backups and Keychain grants keep working.
+The display name and bundle are Cardinal. The bundle identifier is
+`com.awychoi.cardinal`. On first launch after the rename, an existing app-data directory is moved
+to the new identifier, the previous Keychain item is copied across on first credential use, and
+older backups remain restorable; new backups use the Cardinal seal. Quit any older build before
+launching this one.
+
+The compatibility identifiers are isolated in [src-tauri/src/legacy.rs](src-tauri/src/legacy.rs);
+they are not used for new data and can be removed after existing installs have migrated.
 
 The build is ad-hoc signed for local use only — not notarized, not App Sandboxed, not a
 distributable release. macOS will ask once per Keychain item after each rebuild; every Plaid secret

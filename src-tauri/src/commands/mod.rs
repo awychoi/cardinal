@@ -373,7 +373,7 @@ pub fn execute<R: tauri::Runtime>(
             GatewayResponse::ok(AppInfo {
                 name: "Cardinal",
                 version: env!("CARGO_PKG_VERSION"),
-                bundle_identifier: "com.awychoi.cardiganmoney",
+                bundle_identifier: "com.awychoi.cardinal",
                 platform: std::env::consts::OS,
                 api_version: API_VERSION,
                 vault_exists: status.exists,

@@ -196,11 +196,19 @@ describe("AccountsView", () => {
     expect(bank).toHaveAccessibleDescription(/Connected/);
     expect(bank).toHaveAccessibleDescription(/Included in totals/);
 
+    const amazon = screen.getByRole("button", {
+      name: "Filter transactions to Amazon Store Card (demo)",
+    });
+    expect(amazon.querySelector(".card-account-name")).toHaveAttribute(
+      "title",
+      "Amazon Store Card (demo)",
+    );
+
     const card = screen.getByRole("button", {
       name: "Filter transactions to Sapphire Reserve (demo)",
     });
     expect(card).toHaveAccessibleDescription(/current balance/);
-    expect(card).toHaveAccessibleDescription(/spent this month/);
+    expect(card).toHaveAccessibleDescription(/net spent this month/);
     expect(card).toHaveAccessibleDescription(/Connected/);
   });
 
@@ -244,7 +252,7 @@ describe("AccountsView", () => {
     const paypal = screen.getByRole("button", {
       name: "Filter transactions to PayPal Credit (demo)",
     });
-    expect(paypal).toHaveAccessibleDescription(/\$0\.00 spent this month/);
+    expect(paypal).toHaveAccessibleDescription(/\$0\.00 net spent this month/);
     expect(paypal).toHaveTextContent("$0.00");
 
     await user.click(screen.getByText("The full account table"));

@@ -89,7 +89,7 @@ export function App() {
   }, [bootThemeId]);
 
   // Apply before paint so the opening and locked screens never flash the
-  // fallback Blueprint styling when a rounded theme is remembered.
+  // fallback Almanac styling when a rounded theme is remembered.
   useLayoutEffect(() => {
     applyTheme(theme, mode);
   }, [theme, mode]);

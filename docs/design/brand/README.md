@@ -65,10 +65,14 @@ project's font-licensing note in mind if the identity is used outside this proje
 ## Workbench banner
 
 [`app-arcade-overview-dark.png`](../app-arcade-overview-dark.png) is a 1600 × 1074 capture of the
-October 2026 overview in the **Arcade** theme, dark mode, using the synthetic demo ledger. It shows
-no real vault, provider, or account. To regenerate it, run `VITE_MOCK_BRIDGE=1 pnpm dev`, open `/?mockVault=empty` and create a
-mock vault at a 1600 × 1074 viewport, switch the theme to Arcade, hide the browser-only mock-bridge
-banner, and capture the overview.
+wealth overview in the **Arcade** theme, dark mode, using the synthetic demo ledger. It shows no
+real vault, provider, or account.
+
+To regenerate it, run `VITE_MOCK_BRIDGE=1 pnpm dev` and open the default demo at a 1600 × 1074
+viewport (not `/?mockVault=empty`, which is the first-run gate). Unlock the demo, choose
+**Arcade** and dark mode in Settings → Appearance, hide the browser-only mock-bridge banner, and
+capture the overview. The companion Almanac capture in the top-level README is generated the same
+way with the default theme.
 
 ## In the app
 

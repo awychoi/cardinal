@@ -141,6 +141,9 @@ describe("OverviewView", () => {
     );
     expect(screen.getByRole("list", { name: "Spending by category" })).toBeInTheDocument();
     expect(
+      screen.getByText("$802.56 gross · $300.00 refunds → $502.56 net", { exact: false }),
+    ).toBeInTheDocument();
+    expect(
       screen.queryByRole("img", { name: /Gross spending by category/i }),
     ).not.toBeInTheDocument();
   });
@@ -266,6 +269,17 @@ describe("OverviewView", () => {
     expect(
       within(screen.getByRole("list", { name: "Upcoming payments" })).getAllByRole("listitem"),
     ).toHaveLength(4);
+  });
+
+  it("says No USD cards when there are no USD cards", () => {
+    const checking = mockDashboard("demo", "2026-10").overview.accounts.find((account) =>
+      isDepositoryAccount(account.accountType),
+    );
+    if (!checking) throw new Error("fixture checking account missing");
+    renderOverview("ledger", dashboardWithAccounts([checking]));
+
+    expect(screen.getByText("No USD cards")).toBeInTheDocument();
+    expect(screen.queryByText("No reported limits")).not.toBeInTheDocument();
   });
 
   it("offers Add account when the ledger has no accounts", () => {

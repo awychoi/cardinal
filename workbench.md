@@ -3,12 +3,12 @@ treatment: hero
 order: 20
 kicker: Private · Serverless
 note: >-
-  I didn't want to hand over my private spending data, so I built my own expense tracker. Since I
-  use credit cards 99% of the time, a Plaid trial made total sense.
+  I didn't want to hand over my private financial data, so I built my own wealth tracker. I use
+  credit cards 99% of the time, but a real picture needs the bank side too.
 banner: docs/design/app-arcade-overview-dark.png
 banner_alt: >-
-  Cardinal overview in the Arcade theme, showing net spending, reported payments, and card balances
-  for synthetic demo data.
+  Cardinal overview in the Arcade theme, showing net position, cash and card balances, a
+  plain-language quick read, and upcoming payments for synthetic demo data.
 logo: src/assets/brand/cardinal-lockup-dark.svg
 logo_light: src/assets/brand/cardinal-lockup.svg
 back_focal: 27% 34%
@@ -18,6 +18,6 @@ link:
 ---
 ## What it is
 
-Cardinal consolidates a person's credit-card and bank-account balances and transactions into one Plaid-synced dashboard, with cash and card debt kept separate. Or keep it offline via CSV import or manual entry.
+Cardinal brings a person's bank accounts and credit cards into one quiet, bank-first balance sheet, with cash and card debt kept separate. Calendar-month spending stays distinct from statement cycles; amounts can sync through Plaid, import from CSV, or be entered manually.
 
 The vault is SQLCipher-encrypted; an Argon2id-derived key wraps the data key behind a passphrase that is never stored — irrecoverable, by design. Plaid secures the bank connections. Secrets live in the macOS Keychain.

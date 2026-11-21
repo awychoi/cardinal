@@ -414,8 +414,13 @@ export function AppShell({
               : wealth.netStatus === "partial"
                 ? `Partial · ${wealth.usdMissingBalances} of ${usdAccountCount} balances not reported`
                 : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
-  const sideNote = (countable: boolean, scope: string | undefined): string | null => {
+  const sideNote = (
+    countable: boolean,
+    scope: string | undefined,
+    emptyLabel: string,
+  ): string | null => {
     if (countable) return null;
+    if (scope === "empty") return emptyLabel;
     if (scope === "all_excluded") return "Excluded from totals";
     if (scope === "other_currency_only") return "Only other currency";
     return "Not reported";
@@ -455,7 +460,10 @@ export function AppShell({
           <span className={cashCountable ? undefined : "side-net-unknown"}>
             {cashSide}
             {cashCountable ? null : (
-              <span className="sr-only"> {sideNote(false, wealth?.cashScope)}</span>
+              <span className="sr-only">
+                {" "}
+                {sideNote(false, wealth?.cashScope, "No cash accounts")}
+              </span>
             )}
           </span>
         </span>
@@ -464,7 +472,10 @@ export function AppShell({
           <span className={cardCountable ? undefined : "side-net-unknown"}>
             {cardSide}
             {cardCountable ? null : (
-              <span className="sr-only"> {sideNote(false, wealth?.cardScope)}</span>
+              <span className="sr-only">
+                {" "}
+                {sideNote(false, wealth?.cardScope, "No cards tracked")}
+              </span>
             )}
           </span>
         </span>
@@ -511,7 +522,7 @@ export function AppShell({
         {liveMessage}
       </div>
       {sidebar ? (
-        <aside className="sidebar" aria-label="Ledger sidebar">
+        <aside className="sidebar" aria-label="Wealth sidebar">
           <div className="sidebar-head">{brand}</div>
           {sideNet}
           {navigation}

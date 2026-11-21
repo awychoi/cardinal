@@ -61,7 +61,7 @@ function bankTileDescription(account: AccountCard, spend: number): string {
     account.currentBalanceMinor === null
       ? "Balance not reported"
       : `${balanceText(account)} current balance reported, ${balanceAsOf(account)}`,
-    `${formatMoney(spend, account.currency)} spent this month`,
+    `${formatMoney(spend, account.currency)} net spent this month`,
     connectionLabel(account.connectionStatus, account.sourceKind),
     inclusionLabel(account),
   ];
@@ -76,7 +76,7 @@ function cardTileDescription(account: AccountCard, spend: number): string {
       : `${balanceText(account)} current balance reported${
           account.balanceStale ? ", may be stale" : ""
         }`,
-    `${formatMoney(spend, account.currency)} spent this month`,
+    `${formatMoney(spend, account.currency)} net spent this month`,
     dueText(account, true),
     connectionLabel(account.connectionStatus, account.sourceKind),
     inclusionLabel(account),
@@ -104,7 +104,7 @@ function DetailRows({
       <thead>
         <tr>
           <th scope="col">{kind === "cash" ? "Account" : "Card"}</th>
-          <th scope="col">Month spend</th>
+          <th scope="col">Net spend</th>
           <th scope="col">Current balance</th>
           <th scope="col">As of</th>
           <th scope="col">Source</th>
@@ -266,8 +266,8 @@ export function AccountsView({
           <p className="eyebrow">Balance sheet</p>
           <h1 id="accounts-title">Accounts</h1>
           <p className="muted">
-            Everything you own and owe. {monthLabel(dashboard.month)} spending is shown next to each
-            account.
+            Everything you own and owe. {monthLabel(dashboard.month)} net spending after refunds is
+            shown next to each account.
           </p>
         </div>
         <div className="heading-actions">
@@ -391,7 +391,7 @@ export function AccountsView({
                   <span className="bank-card-rule" aria-hidden="true" />
                   <span className="bank-card-stats">
                     <span>
-                      <small>Spent this month</small>
+                      <small>Net spent this month</small>
                       {formatMoney(spend, account.currency)}
                     </span>
                     <span>
@@ -498,7 +498,9 @@ export function AccountsView({
                   <span className="card-account-body">
                     <span className="card-account-head">
                       <span>
-                        <span className="card-account-name">{account.displayName}</span>
+                        <span className="card-account-name" title={account.displayName}>
+                          {account.displayName}
+                        </span>
                         <span className="card-account-issuer">
                           {account.issuer}
                           {account.lastFour ? ` · •••• ${account.lastFour}` : ""}
@@ -518,7 +520,7 @@ export function AccountsView({
                         </strong>
                       </span>
                       <span>
-                        <small>Spent this month</small>
+                        <small>Net spent this month</small>
                         <strong>{formatMoney(spend, account.currency)}</strong>
                       </span>
                     </span>

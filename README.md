@@ -2,18 +2,19 @@
 
 # Cardinal
 
-A local-first, encrypted personal finance app for macOS. It tracks one person's credit-card and
-bank-account balances and calendar-month spending, and keeps everything on the Mac — no account,
-no cloud, no telemetry.
+A local-first, encrypted wealth manager for macOS. It brings bank accounts and credit cards into
+one quiet, bank-first balance sheet, tracks calendar-month spending, and keeps everything on the
+Mac — no account, no cloud, no telemetry.
 
 Built with Tauri 2, React, TypeScript, Rust, and SQLCipher.
 
-![Cardinal overview screen with the Blueprint theme in dark mode and synthetic demo data](docs/design/app-blueprint-overview-dark.png)
+![Cardinal overview in the Almanac theme, dark mode, showing net position, cash and card balances, a plain-language quick read, and upcoming card payments for synthetic demo data](docs/design/app-almanac-overview-dark.png)
 
 ## What it does
 
+- A bank-first balance sheet: cash, card debt, available credit, and a net position that stay current regardless of the month you're viewing.
+- A curated overview — net-position beam, plain-language quick read, payments coming up, category mix, and a 12-month trend — with exact row counts, utilization, and connection health one disclosure away.
 - Calendar-month spending across credit cards and bank accounts, kept separate from statement cycles.
-- Card balances, cash balances, and a net position that stay current regardless of the month you're viewing.
 - Missing balances stay unknown — “Not reported”, never `$0.00` — while a reported `$0.00` is a real value.
 - Upcoming card payments, with bank transfers, card payments, and income excluded from spending.
 - Pending, posted, refunds, fees, payments, and transfers are distinct states.
@@ -104,6 +105,7 @@ artifacts. CI (`.github/workflows/secret-scan.yml`) re-scans all history on ever
 ## User guides
 
 - [Documentation map](docs/README.md)
+- [Wealth interface design notes](docs/design/wealth-interface.md)
 - [Plaid setup and linking](docs/integrations/plaid-guide.md)
 - [Backup and recovery](docs/operations/backup-recovery.md)
 - [Security architecture](docs/security/architecture.md) · [threat model](docs/security/threat-model.md) · [incident runbook](docs/security/incident-runbook.md)

@@ -31,11 +31,12 @@ function subtotalLabel(
   subtotals: CurrencySubtotal[],
   amountKey: "eligibleMinor" | "pendingMinor",
   countKey: "eligibleCount" | "pendingCount",
+  emptyLabel: string,
 ): string {
   const values = subtotals
     .filter((item) => item[countKey] > 0)
     .map((item) => `${formatMoney(item[amountKey], item.currency)} ${item.currency}`);
-  return values.length > 0 ? values.join(" · ") : "—";
+  return values.length > 0 ? values.join(" · ") : emptyLabel;
 }
 
 function daySubtotalLabel(rows: LedgerRow[]): string {
@@ -314,16 +315,30 @@ export function LedgerView({
   const latest = dashboard.latestActivity;
 
   const bodyRows = table.getRowModel().rows;
-  const eligibleSubtotalText = subtotalLabel(
-    result?.subtotals ?? [],
-    "eligibleMinor",
-    "eligibleCount",
-  );
-  const pendingSubtotalText = subtotalLabel(
-    result?.subtotals ?? [],
-    "pendingMinor",
-    "pendingCount",
-  );
+  const eligibleSubtotalText = result
+    ? subtotalLabel(result.subtotals, "eligibleMinor", "eligibleCount", "No eligible rows")
+    : "—";
+  const pendingSubtotalText = result
+    ? subtotalLabel(result.subtotals, "pendingMinor", "pendingCount", "No pending rows")
+    : "—";
+  const eligibleUsdCount =
+    result?.subtotals.find((item) => item.currency === "USD")?.eligibleCount ?? 0;
+  const eligibleOtherCount =
+    result?.subtotals.reduce(
+      (sum, item) => sum + (item.currency === "USD" ? 0 : item.eligibleCount),
+      0,
+    ) ?? 0;
+  const eligibleCount = eligibleUsdCount + eligibleOtherCount;
+  // The deeper panel labels its count "Eligible rows · USD". Say which
+  // currencies this chip spans so the two numbers do not look contradictory.
+  const eligibleScope =
+    eligibleCount === 0
+      ? "all currencies"
+      : eligibleOtherCount === 0
+        ? "USD"
+        : eligibleUsdCount === 0
+          ? "other currencies"
+          : `${eligibleUsdCount} USD + ${eligibleOtherCount} other-currency`;
   const dateGroups: Array<{ date: string; rows: Row<LedgerRow>[] }> = [];
   if (grouped) {
     for (const row of bodyRows) {
@@ -636,27 +651,15 @@ export function LedgerView({
           </div>
 
           <div className="ledger-meta" role="status">
-            <span>{result?.rowCount ?? 0} rows</span>
+            <span>{result?.rowCount ?? 0} rows · all currencies</span>
             <span>
-              {result?.subtotals.reduce((sum, item) => sum + item.eligibleCount, 0) ?? 0} eligible
+              {eligibleCount} eligible · {eligibleScope}
             </span>
             <span>
-              Eligible subtotal:{" "}
-              <strong className="amount">
-                {eligibleSubtotalText}
-                {eligibleSubtotalText === "—" ? (
-                  <span className="sr-only"> Not reported</span>
-                ) : null}
-              </strong>
+              Eligible subtotal: <strong className="amount">{eligibleSubtotalText}</strong>
             </span>
             <span>
-              Pending subtotal:{" "}
-              <strong className="amount">
-                {pendingSubtotalText}
-                {pendingSubtotalText === "—" ? (
-                  <span className="sr-only"> Not reported</span>
-                ) : null}
-              </strong>
+              Pending subtotal: <strong className="amount">{pendingSubtotalText}</strong>
             </span>
             {filtersActive ? <span className="status-pill status-info">Filtered</span> : null}
           </div>

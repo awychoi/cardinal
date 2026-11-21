@@ -127,6 +127,31 @@ describe("LedgerView", () => {
     expect(screen.queryByRole("button", { name: /^View / })).not.toBeInTheDocument();
   });
 
+  it("scopes the row and eligible chips to all currencies", async () => {
+    renderLedger(mockDashboard("real", "2026-10"));
+
+    expect(await screen.findByText("30 rows · all currencies")).toBeInTheDocument();
+    expect(screen.getByText("23 eligible · 19 USD + 4 other-currency")).toBeInTheDocument();
+  });
+
+  it("labels a known zero subtotal instead of announcing it as not reported", async () => {
+    renderLedger(mockDashboard("real", "2026-10"));
+
+    await userEvent.selectOptions(screen.getByLabelText("Filter by status"), "pending");
+    expect(await screen.findByText("No eligible rows")).toBeInTheDocument();
+    expect(screen.getByText(/Eligible subtotal:/)).toHaveTextContent(
+      "Eligible subtotal: No eligible rows",
+    );
+    expect(screen.queryByText("Not reported")).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText("Filter by status"), "posted");
+    expect(await screen.findByText("No pending rows")).toBeInTheDocument();
+    expect(screen.getByText(/Pending subtotal:/)).toHaveTextContent(
+      "Pending subtotal: No pending rows",
+    );
+    expect(screen.queryByText("Not reported")).not.toBeInTheDocument();
+  });
+
   it("opens details from one row control, announces the panel, and restores focus on Escape", async () => {
     renderLedger();
     const buttons = await screen.findAllByRole("button", { name: /^View details for / });

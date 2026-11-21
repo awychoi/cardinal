@@ -110,7 +110,7 @@ test.describe("read-only dashboard (browser mock)", () => {
     await page.getByRole("button", { name: /Filter transactions to Freedom Unlimited/ }).click();
     await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
     await expect(page.getByLabel("Filter by account")).not.toHaveValue("");
-    await expect(page.getByText(/^\d+ rows$/)).toBeVisible();
+    await expect(page.getByText(/^\d+ rows · all currencies$/)).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page.getByLabel("Filter by account")).toHaveValue("");
   });

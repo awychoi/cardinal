@@ -117,6 +117,8 @@ describe("app shell", () => {
     expect(side).not.toHaveTextContent("No accounts yet");
     expect(side.querySelector(".side-net-value")).toHaveTextContent("—");
     expect(side.querySelector(".side-net-split")).not.toHaveTextContent("$0.00");
+    const sidebar = screen.getByRole("complementary", { name: "Wealth sidebar" });
+    expect(within(sidebar).getByText("No cards tracked")).toBeInTheDocument();
   });
 
   it("separates all-excluded accounts from an empty ledger in the sidebar", async () => {
@@ -138,6 +140,25 @@ describe("app shell", () => {
     expect(side).not.toHaveTextContent("No accounts yet");
     expect(side.querySelector(".side-net-value")).toHaveTextContent("—");
     expect(side.querySelector(".side-net-split")).not.toHaveTextContent("$0.00");
+  });
+
+  it("names an empty sidebar side instead of reporting it unknown", async () => {
+    for (const account of mockAccounts()) archiveMockAccount(account.id, true);
+    createMockAccount({
+      issuer: "Chase",
+      displayName: "Euro Card",
+      lastFour: "1234",
+      accountType: "credit_card",
+      currency: "EUR",
+      creditLimit: "5000.00",
+      currentBalance: "100.00",
+      includeInOverview: true,
+    });
+
+    await unlock();
+    const sidebar = screen.getByRole("complementary", { name: "Wealth sidebar" });
+    expect(within(sidebar).getByText("No cash accounts")).toBeInTheDocument();
+    expect(within(sidebar).queryByText("Not reported")).not.toBeInTheDocument();
   });
 
   it("matches the nav badge, ledger meta, and all-rows detail on mixed currencies", async () => {

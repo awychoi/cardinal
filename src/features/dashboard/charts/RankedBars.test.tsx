@@ -16,7 +16,9 @@ describe("RankedBars", () => {
         2,
       ),
     );
-    render(<RankedBars data={data} />);
+    render(
+      <RankedBars data={data} totalMinor={110_000} refundsMinor={-2_500} netMinor={107_500} />,
+    );
 
     const list = screen.getByRole("list", { name: "Spending by category" });
     expect(list).toBeInTheDocument();
@@ -25,10 +27,13 @@ describe("RankedBars", () => {
     expect(screen.getAllByText("9%").length).toBeGreaterThan(0);
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByRole("rowheader", { name: "Travel" })).toBeInTheDocument();
+    expect(
+      screen.getByText("$1,100.00 gross · $25.00 refunds → $1,075.00 net"),
+    ).toBeInTheDocument();
   });
 
   it("renders the empty state and keeps the table for assistive tech", () => {
-    render(<RankedBars data={[]} />);
+    render(<RankedBars data={[]} totalMinor={0} refundsMinor={0} netMinor={0} />);
     expect(screen.getByText("No posted spending this month.")).toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
   });

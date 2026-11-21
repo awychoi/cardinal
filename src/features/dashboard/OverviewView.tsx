@@ -605,9 +605,11 @@ export function OverviewView({
               </strong>
               <span className="hero-mini-note">
                 {model.availableCreditMinor === null
-                  ? model.usdCardReportedCount === 0 && model.usdCardCount > 0
-                    ? "No card balances reported"
-                    : "No reported limits"
+                  ? model.usdCardCount === 0
+                    ? "No USD cards"
+                    : model.usdCardReportedCount === 0 && model.usdCardCount > 0
+                      ? "No card balances reported"
+                      : "No reported limits"
                   : `${model.utilizationPercent ?? 0}% used${
                       model.availableCreditPartial ? " · reported limits only" : ""
                     }`}
@@ -996,7 +998,12 @@ export function OverviewView({
                 netMinor={summary.netSpendingMinor}
               />
             ) : (
-              <RankedBars data={composition} />
+              <RankedBars
+                data={composition}
+                totalMinor={summary.grossPurchasesMinor + summary.feesInterestMinor}
+                refundsMinor={summary.refundsMinor}
+                netMinor={summary.netSpendingMinor}
+              />
             )}
           </section>
         ) : null}

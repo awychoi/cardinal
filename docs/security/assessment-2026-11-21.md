@@ -108,9 +108,10 @@ flag (`runtime` would appear in the flags), no App Sandbox, and no notarization.
 
 **Why it matters**
 
-- The README says "The build is ad-hoc signed for local use only"; that is true of the executable,
-  but not of the bundle. A downloaded or quarantined copy fails Gatekeeper; a locally built copy
-  only launches because it was never quarantined.
+- At review time, the README said "The build is ad-hoc signed for local use only"; that was true
+  of the executable, but not of the bundle. The README has since been corrected.
+- A downloaded or quarantined copy fails Gatekeeper; a locally built copy only launches because it
+  was never quarantined.
 - Without a bundle seal, `Info.plist` and resources are not integrity-protected. Adding, for
   example, an `LSEnvironment` entry to inject a dynamic library is a local code-injection path that
   a properly signed/hardened app does not have.
@@ -286,7 +287,8 @@ a recovery path; denial of service is a real risk for a local vault.
 - Unlock failures are only written after a later successful unlock (the DB is inaccessible while
   locked), and the in-memory failure counter resets on relaunch.
 
-`SECURITY.md` says the trail records "integrity failure, single-instance rejection"; that is not
+At review time, `SECURITY.md` said the trail records "integrity failure, single-instance rejection";
+that was not
 true today.
 
 **Recommendation**
@@ -398,7 +400,7 @@ The documentation rows below were corrected in the same change as this report; t
 show what the review found and what changed. They were not all vulnerabilities, but in a security
 product they were misleading:
 
-| Claim | Reality |
+| Claim at review | Reality at review |
 |---|---|
 | `SECURITY.md`: provider secrets use `WhenUnlockedThisDeviceOnly` | Set but not effective in the login keychain (see F2) |
 | `SECURITY.md`: audit trail records integrity failure and single-instance rejection | Event types are declared but never emitted (see F7) |

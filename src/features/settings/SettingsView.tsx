@@ -538,7 +538,7 @@ export function SettingsView({
                 component and no telemetry.
               </p>
               <p className="about-maker">
-                Made by Wai Yin Choi · New York · <MakerLink />
+                Made by Wai Yin Choi · <MakerLink />
               </p>
               {vault.security ? (
                 <dl className="facts">

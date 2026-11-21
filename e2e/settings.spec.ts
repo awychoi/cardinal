@@ -62,7 +62,6 @@ test.describe("settings sections (browser mock)", () => {
     await page.getByRole("button", { name: "About", exact: true }).click();
     const creditLine = page.locator(".about-maker");
     await expect(creditLine).toContainText("Made by Wai Yin Choi");
-    await expect(creditLine).toContainText("New York");
     await expect(creditLine.locator("img")).toHaveCount(0);
     await expect(creditLine.getByRole("button", { name: "wychoi.com" })).toBeVisible();
     await expect(page.locator(".maker-card")).toHaveCount(0);

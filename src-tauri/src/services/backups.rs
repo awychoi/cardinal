@@ -127,6 +127,9 @@ impl std::fmt::Debug for BackupHeader {
 }
 
 const BACKUP_SEAL_DOMAIN: &[u8] = b"cardinal backup seal v1";
+/// Pre-rename data-format domain separator. Existing backup containers keep
+/// verifying after the rename; new containers use `BACKUP_SEAL_DOMAIN`.
+const LEGACY_BACKUP_SEAL_DOMAIN: &[u8] = b"cardigan_money backup seal v1";
 
 fn seal_key_with_domain(domain: &[u8], dek: &LockedKey) -> AppResult<LockedKey> {
     let mut hasher = Sha256::new();
@@ -152,7 +155,7 @@ fn verify_seal_bytes(
         return Ok(());
     }
     crypto::open_sealed(
-        &seal_key_with_domain(crate::legacy::BACKUP_SEAL_DOMAIN, dek)?,
+        &seal_key_with_domain(LEGACY_BACKUP_SEAL_DOMAIN, dek)?,
         nonce,
         aad,
         tag,
@@ -1359,7 +1362,7 @@ mod tests {
         let dek = LockedKey::generate().unwrap();
         let nonce = crypto::random_array::<24>().unwrap();
         let aad = b"backup header";
-        let legacy = seal_key_with_domain(crate::legacy::BACKUP_SEAL_DOMAIN, &dek).unwrap();
+        let legacy = seal_key_with_domain(LEGACY_BACKUP_SEAL_DOMAIN, &dek).unwrap();
         let legacy_tag = crypto::seal(&legacy, &nonce, aad, b"").unwrap();
         let mut legacy_tag: [u8; 16] = legacy_tag.try_into().unwrap();
         assert!(verify_seal_bytes(&dek, &nonce, aad, &legacy_tag).is_ok());

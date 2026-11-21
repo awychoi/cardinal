@@ -12,8 +12,8 @@ override, or hidden account.
 ## 1. Where backups live
 
 - App backups: `~/Library/Application Support/com.awychoi.cardinal/backups/`
-- Backups written before the rename are moved with the app-data directory and remain restorable;
-  only new containers use the Cardinal seal.
+- Backups written before the rename remain restorable through the legacy seal; new containers use
+  the Cardinal seal.
 - Each file is `cm-backup-<kind>-<vault-prefix>-gen<generation>-<UTC>-<nonce>.cmbak`, mode `0600`.
 - Kinds: `daily`, `manual`, `pre-migration`, `pre-restore`, `pre-change`, and the
   legacy `portable` kind (existing portable containers remain restorable).

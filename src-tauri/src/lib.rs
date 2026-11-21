@@ -3,7 +3,6 @@ pub mod demo;
 pub mod domain;
 pub mod error;
 pub mod ipc;
-mod legacy;
 pub mod providers;
 pub mod security;
 pub mod services;
@@ -36,14 +35,9 @@ fn resolve_app_data(
             }
         }
     }
-    let app_data = app
-        .path()
+    app.path()
         .app_data_dir()
-        .map_err(|_| "app data path unavailable")?;
-    // A fresh install has nothing to migrate. If an earlier app-data tree
-    // exists, move it before AppState creates permissions on the new path.
-    crate::legacy::migrate_app_data_dir(&app_data)?;
-    Ok(app_data)
+        .map_err(|_| "app data path unavailable".into())
 }
 
 fn harden_process() {

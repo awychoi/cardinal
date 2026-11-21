@@ -245,10 +245,10 @@ export function ImportExportPanel({ onChanged }: { onChanged: () => void }) {
       ) : null}
 
       {loading && accounts.length === 0 ? (
-        <p className="muted">Loading cards…</p>
+        <p className="muted">Loading accounts…</p>
       ) : accounts.length === 0 ? (
         <p className="muted">
-          No cards yet. Add one on the All accounts tab or connect a bank first.
+          No accounts yet. Add one on the All accounts tab or connect a bank first.
         </p>
       ) : !job ? (
         <div className="import-start">

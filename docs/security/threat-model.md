@@ -4,7 +4,7 @@ Status: Phase 0. Derived from the retired 2026-10 build specification and pre-im
 
 ## 1. What the app is
 
-A single-user, local-first macOS desktop application for one person's credit-card balances and calendar-month spending. Tauri 2 shell, React renderer, Rust services, SQLCipher ledger. No server, no accounts service, no telemetry, no inbound listener, no multi-user boundary.
+A single-user, local-first macOS desktop application for one person's credit-card and bank-account balances and calendar-month spending. Tauri 2 shell, React renderer, Rust services, SQLCipher ledger. No server, no accounts service, no telemetry, no inbound listener, no multi-user boundary.
 
 ## 2. Assets, in priority order
 

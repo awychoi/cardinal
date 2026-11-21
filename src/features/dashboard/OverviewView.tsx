@@ -41,14 +41,14 @@ export function OverviewView({
   dashboard,
   theme,
   onAddAccount,
-  onOpenCards,
+  onOpenAccounts,
   onOpenSettings,
   onOpenTransactions,
 }: {
   dashboard: Dashboard;
   theme: Theme;
   onAddAccount: () => void;
-  onOpenCards: () => void;
+  onOpenAccounts: () => void;
   onOpenSettings: () => void;
   onOpenTransactions: () => void;
 }) {
@@ -102,8 +102,13 @@ export function OverviewView({
       account.connectionStatus === "error" || account.connectionStatus === "reconnect_required",
   ).length;
   const pendingOnly = summary.netSpendingMinor === 0 && summary.pendingSubtotalMinor !== 0;
-  const totalAccounts =
-    overview.balances.accountsWithBalance + overview.balances.accountsMissingBalance;
+  const cardTotalAccounts =
+    overview.balances.cardAccountsWithBalance + overview.balances.cardAccountsMissingBalance;
+  const cashTotalAccounts =
+    overview.balances.cashAccountsWithBalance + overview.balances.cashAccountsMissingBalance;
+  const hasCashAccounts = cashTotalAccounts > 0;
+  const missingBalances =
+    overview.balances.cardAccountsMissingBalance + overview.balances.cashAccountsMissingBalance;
 
   const accountById = new Map(overview.accounts.map((account) => [account.accountId, account]));
   const entries = [...overview.upcoming.entries].sort(
@@ -137,18 +142,16 @@ export function OverviewView({
       title: `${staleCount} balance${staleCount === 1 ? "" : "s"} stale`,
       detail: "Last-known values are preserved and labeled, never treated as current.",
       actionLabel: "Review balances",
-      onAction: onOpenCards,
+      onAction: onOpenAccounts,
     });
   }
-  if (overview.balances.accountsMissingBalance > 0) {
+  if (missingBalances > 0) {
     attention.push({
       id: "missing",
-      title: `${overview.balances.accountsMissingBalance} account${
-        overview.balances.accountsMissingBalance === 1 ? "" : "s"
-      } missing a balance`,
+      title: `${missingBalances} account${missingBalances === 1 ? "" : "s"} missing a balance`,
       detail: "A missing balance is not the same as $0.00.",
       actionLabel: "Review balances",
-      onAction: onOpenCards,
+      onAction: onOpenAccounts,
     });
   }
   if (overview.upcoming.unknownAmountCount > 0) {
@@ -159,7 +162,7 @@ export function OverviewView({
       } not reported`,
       detail: "The due date is known; the amount is not.",
       actionLabel: "Review balances",
-      onAction: onOpenCards,
+      onAction: onOpenAccounts,
     });
   }
   if (pendingOnly) {
@@ -174,7 +177,7 @@ export function OverviewView({
   if (overview.accounts.length === 0) {
     return (
       <section className="empty-state" aria-labelledby="overview-title">
-        <h1 id="overview-title">Your cards, in one quiet place.</h1>
+        <h1 id="overview-title">Your accounts, in one quiet place.</h1>
         <p className="muted">No accounts yet. The app is usable with an empty ledger.</p>
         <Button variant="primary" onClick={onAddAccount}>
           Add account
@@ -222,14 +225,41 @@ export function OverviewView({
             </div>
 
             <div className="hero-balance">
-              <span className="hero-label">Current card balances</span>
-              <strong className="hero-balance-value">
-                {formatMoney(overview.balances.knownTotalMinor)}
-              </strong>
-              <span className="hero-balance-detail">
-                {overview.balances.accountsWithBalance} of {totalAccounts} reported
-                {overview.balances.complete ? " · all included USD accounts" : ""}
-              </span>
+              <div className="hero-balance-block">
+                <span className="hero-label">Current card balances</span>
+                <strong className="hero-balance-value">
+                  {formatMoney(overview.balances.cardKnownTotalMinor)}
+                </strong>
+                <span className="hero-balance-detail">
+                  {overview.balances.cardAccountsWithBalance} of {cardTotalAccounts} reported
+                  {overview.balances.cardComplete ? " · all included USD cards" : ""}
+                </span>
+              </div>
+              {hasCashAccounts ? (
+                <div className="hero-balance-block">
+                  <span className="hero-label">Cash</span>
+                  <strong className="hero-balance-value hero-balance-value-small">
+                    {formatMoney(overview.balances.cashKnownTotalMinor)}
+                  </strong>
+                  <span className="hero-balance-detail">
+                    {overview.balances.cashAccountsWithBalance} of {cashTotalAccounts} reported
+                    {overview.balances.cashComplete ? " · all included USD accounts" : ""}
+                  </span>
+                </div>
+              ) : null}
+              {hasCashAccounts ? (
+                <div className="hero-balance-block">
+                  <span className="hero-label">Net position</span>
+                  <strong className="hero-balance-value hero-balance-value-small">
+                    {formatMoney(overview.balances.netPositionMinor)}
+                  </strong>
+                  <span className="hero-balance-detail">
+                    {overview.balances.netPositionComplete
+                      ? "cash minus card balances"
+                      : "known balances only — some are missing"}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
 

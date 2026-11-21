@@ -127,7 +127,42 @@ export const zEventsRequest = z
   .object({ limit: z.number().int().min(1).max(100).optional() })
   .strict();
 
-export const zAccountType = z.enum(["credit_card", "charge_card", "line_of_credit", "other"]);
+export const zAccountType = z.enum([
+  "credit_card",
+  "charge_card",
+  "line_of_credit",
+  "checking",
+  "savings",
+  "depository",
+  "other",
+]);
+
+export type AccountType = z.infer<typeof zAccountType>;
+
+/** Cash accounts. Everything else, including the legacy `other`, stays on the
+ * credit side of the overview so old manual accounts keep their treatment. */
+export function isDepositoryAccount(value: string): boolean {
+  return value === "checking" || value === "savings" || value === "depository";
+}
+
+export function accountTypeLabel(value: string): string {
+  switch (value) {
+    case "credit_card":
+      return "credit card";
+    case "charge_card":
+      return "charge card";
+    case "line_of_credit":
+      return "line of credit";
+    case "checking":
+      return "checking";
+    case "savings":
+      return "savings";
+    case "depository":
+      return "bank account";
+    default:
+      return "other";
+  }
+}
 
 export const zAccountPayload = z
   .object({
@@ -141,6 +176,7 @@ export const zAccountPayload = z
     accountType: zAccountType,
     currency: z.string().regex(/^[A-Z]{3}$/),
     creditLimit: z.string().trim().max(40).nullable(),
+    currentBalance: z.string().trim().max(40).nullable(),
     includeInOverview: z.boolean(),
   })
   .strict();
@@ -199,6 +235,7 @@ export const zAccountCard = z
     issuer: z.string(),
     displayName: z.string(),
     lastFour: z.string().nullable(),
+    accountType: z.string(),
     currency: z.string(),
     included: z.boolean(),
     sourceKind: z.string(),
@@ -216,10 +253,16 @@ export const zAccountCard = z
 
 export const zBalanceTotals = z
   .object({
-    knownTotalMinor: z.number().int(),
-    accountsWithBalance: z.number().int(),
-    accountsMissingBalance: z.number().int(),
-    complete: z.boolean(),
+    cardKnownTotalMinor: z.number().int(),
+    cardAccountsWithBalance: z.number().int(),
+    cardAccountsMissingBalance: z.number().int(),
+    cardComplete: z.boolean(),
+    cashKnownTotalMinor: z.number().int(),
+    cashAccountsWithBalance: z.number().int(),
+    cashAccountsMissingBalance: z.number().int(),
+    cashComplete: z.boolean(),
+    netPositionMinor: z.number().int(),
+    netPositionComplete: z.boolean(),
     otherCurrency: z.array(z.tuple([z.string(), z.number().int()])),
   })
   .strict();

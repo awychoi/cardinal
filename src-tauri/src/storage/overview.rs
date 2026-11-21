@@ -10,6 +10,7 @@ use serde::Serialize;
 
 use crate::domain::dates::{advance_monthly_until, format_date, parse_date};
 use crate::error::{AppError, AppResult};
+use crate::storage::accounts::is_depository_type;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -58,6 +59,7 @@ pub struct AccountCard {
     pub issuer: String,
     pub display_name: String,
     pub last_four: Option<String>,
+    pub account_type: String,
     pub currency: String,
     pub included: bool,
     pub source_kind: String,
@@ -72,13 +74,23 @@ pub struct AccountCard {
     pub payment: PaymentInfo,
 }
 
+/// Card debt and cash are reported separately. `net_position_minor` is cash
+/// minus card debt across included USD accounts with a known balance; when any
+/// included USD account is missing a balance, `net_position_complete` is false
+/// and the figure is a subtotal, never a complete position.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct BalanceTotals {
-    pub known_total_minor: i64,
-    pub accounts_with_balance: i64,
-    pub accounts_missing_balance: i64,
-    pub complete: bool,
+    pub card_known_total_minor: i64,
+    pub card_accounts_with_balance: i64,
+    pub card_accounts_missing_balance: i64,
+    pub card_complete: bool,
+    pub cash_known_total_minor: i64,
+    pub cash_accounts_with_balance: i64,
+    pub cash_accounts_missing_balance: i64,
+    pub cash_complete: bool,
+    pub net_position_minor: i64,
+    pub net_position_complete: bool,
     pub other_currency: Vec<(String, i64)>,
 }
 
@@ -120,6 +132,7 @@ struct AccountRow {
     issuer: String,
     display_name: String,
     last_four: Option<String>,
+    account_type: String,
     currency: String,
     included: bool,
     source_kind: String,
@@ -128,7 +141,7 @@ struct AccountRow {
 fn load_accounts(conn: &Connection, include_archived: bool) -> AppResult<Vec<AccountRow>> {
     let sql =
         format!(
-        "SELECT id, issuer, display_name, last_four, currency, include_in_overview, source_kind \
+        "SELECT id, issuer, display_name, last_four, account_type, currency, include_in_overview, source_kind \
          FROM accounts {} ORDER BY issuer COLLATE NOCASE, display_name COLLATE NOCASE, id",
         if include_archived { "" } else { "WHERE archived = 0" }
     );
@@ -140,9 +153,10 @@ fn load_accounts(conn: &Connection, include_archived: bool) -> AppResult<Vec<Acc
                 issuer: row.get(1)?,
                 display_name: row.get(2)?,
                 last_four: row.get(3)?,
-                currency: row.get(4)?,
-                included: row.get::<_, i64>(5)? != 0,
-                source_kind: row.get(6)?,
+                account_type: row.get(4)?,
+                currency: row.get(5)?,
+                included: row.get::<_, i64>(6)? != 0,
+                source_kind: row.get(7)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -177,7 +191,7 @@ fn latest_balance(conn: &Connection, account_id: &str) -> AppResult<Option<Balan
     conn.query_row(
         "SELECT current_balance_minor, available_credit_minor, credit_limit_minor, retrieved_at, provenance \
          FROM balance_snapshots WHERE account_id = ?1 AND (provenance <> 'provider' OR restored = 0) \
-         ORDER BY retrieved_at DESC, id DESC LIMIT 1",
+         ORDER BY retrieved_at DESC, rowid DESC LIMIT 1",
         [account_id],
         |row| {
             Ok(BalanceRow {
@@ -213,7 +227,7 @@ fn latest_provider_payment(
         "SELECT next_due_date, minimum_due_minor, statement_balance_minor, last_statement_issue_date, \
                 next_closing_date, retrieved_at \
          FROM payment_snapshots WHERE account_id = ?1 AND provenance = 'provider' AND restored = 0 \
-         ORDER BY retrieved_at DESC, id DESC LIMIT 1",
+         ORDER BY retrieved_at DESC, rowid DESC LIMIT 1",
         [account_id],
         |row| {
             Ok(ProviderPayment {
@@ -351,19 +365,29 @@ fn payment_info(
 pub fn overview(conn: &Connection, today: NaiveDate) -> AppResult<Overview> {
     let account_rows = load_accounts(conn, false)?;
     let mut accounts = Vec::with_capacity(account_rows.len());
-    let mut known_total = 0i64;
-    let mut missing = 0i64;
-    let mut with_balance = 0i64;
+    let mut card_total = 0i64;
+    let mut card_missing = 0i64;
+    let mut card_with_balance = 0i64;
+    let mut cash_total = 0i64;
+    let mut cash_missing = 0i64;
+    let mut cash_with_balance = 0i64;
     let mut other_currency: std::collections::BTreeMap<String, i64> =
         std::collections::BTreeMap::new();
     let mut upcoming_entries = Vec::new();
     let window_end = today + chrono::Duration::days(14);
 
     for row in account_rows {
+        let depository = is_depository_type(&row.account_type);
         let balance = latest_balance(conn, &row.id)?;
-        let provider = latest_provider_payment(conn, &row.id)?;
-        let manual = manual_payment(conn, &row.id)?;
-        let payment = payment_info(today, provider.as_ref(), manual.as_ref())?;
+        // Payment metadata belongs to credit products. A bank account has no
+        // statement or minimum due, even if a legacy manual entry exists.
+        let payment = if depository {
+            PaymentInfo::default()
+        } else {
+            let provider = latest_provider_payment(conn, &row.id)?;
+            let manual = manual_payment(conn, &row.id)?;
+            payment_info(today, provider.as_ref(), manual.as_ref())?
+        };
         let status = connection_status(conn, &row.id)?;
         let balance_age_days = balance.as_ref().and_then(|balance| {
             chrono::DateTime::parse_from_rfc3339(&balance.retrieved_at)
@@ -373,15 +397,23 @@ pub fn overview(conn: &Connection, today: NaiveDate) -> AppResult<Overview> {
         let balance_stale = balance_age_days.map(|days| days > 7).unwrap_or(false);
 
         if row.included {
-            if let Some(balance) = &balance {
-                with_balance += 1;
-                if row.currency == "USD" {
-                    known_total += balance.current;
-                } else {
-                    *other_currency.entry(row.currency.clone()).or_insert(0) += balance.current;
+            match (depository, &balance) {
+                (true, Some(balance)) => {
+                    cash_with_balance += 1;
+                    if row.currency == "USD" {
+                        cash_total += balance.current;
+                    }
                 }
-            } else {
-                missing += 1;
+                (false, Some(balance)) => {
+                    card_with_balance += 1;
+                    if row.currency == "USD" {
+                        card_total += balance.current;
+                    } else {
+                        *other_currency.entry(row.currency.clone()).or_insert(0) += balance.current;
+                    }
+                }
+                (true, None) => cash_missing += 1,
+                (false, None) => card_missing += 1,
             }
         }
 
@@ -390,6 +422,7 @@ pub fn overview(conn: &Connection, today: NaiveDate) -> AppResult<Overview> {
             issuer: row.issuer.clone(),
             display_name: row.display_name.clone(),
             last_four: row.last_four.clone(),
+            account_type: row.account_type.clone(),
             currency: row.currency.clone(),
             included: row.included,
             source_kind: row.source_kind.clone(),
@@ -404,7 +437,7 @@ pub fn overview(conn: &Connection, today: NaiveDate) -> AppResult<Overview> {
             payment: payment.clone(),
         };
 
-        if row.included {
+        if row.included && !depository {
             if let Some(due_date) = &payment.next_due_date {
                 if let Ok(date) = parse_date(due_date) {
                     if date >= today && date < window_end {
@@ -453,14 +486,21 @@ pub fn overview(conn: &Connection, today: NaiveDate) -> AppResult<Overview> {
         non_usd_entry_count,
     };
 
-    let complete = missing == 0 && with_balance > 0;
+    let card_complete = card_missing == 0 && card_with_balance > 0;
+    let cash_complete = cash_missing == 0 && cash_with_balance > 0;
     Ok(Overview {
         accounts,
         balances: BalanceTotals {
-            known_total_minor: known_total,
-            accounts_with_balance: with_balance,
-            accounts_missing_balance: missing,
-            complete,
+            card_known_total_minor: card_total,
+            card_accounts_with_balance: card_with_balance,
+            card_accounts_missing_balance: card_missing,
+            card_complete,
+            cash_known_total_minor: cash_total,
+            cash_accounts_with_balance: cash_with_balance,
+            cash_accounts_missing_balance: cash_missing,
+            cash_complete,
+            net_position_minor: cash_total - card_total,
+            net_position_complete: card_complete && cash_complete,
             other_currency: other_currency.into_iter().collect(),
         },
         upcoming,

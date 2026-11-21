@@ -25,6 +25,7 @@ fn verification_report_exposes_only_sanitized_counts() {
                     currency: "USD".into(),
                     credit_limit_minor: Some(100_000),
                     include_in_overview: true,
+                    current_balance_minor: None,
                 },
             )?;
             let connection_id = uuid::Uuid::new_v4().to_string();

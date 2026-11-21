@@ -13,9 +13,10 @@ Items**; removing an Item does **not** restore Trial capacity. Transactions and 
 subscription products that can begin billing after upgrading from Trial.
 
 The production *wiring* is implemented: credentials, Hosted Link, token exchange, sync, reconnect,
-disconnect/revoke, and restore cleanup are all environment-aware. A real Trial Item has **not** been
-linked or verified by the maintainer as of 2026-10-25; verify with your own institution before
-relying on it.
+disconnect/revoke, and restore cleanup are all environment-aware. Sandbox and Trial/Production have
+both been verified end to end, the latter on 2026-11-01 with a real Item containing 4 credit
+accounts. Live depository-account linking has **not** yet been verified; verify with your own
+institution before relying on it.
 
 ## Owner prerequisites
 
@@ -59,17 +60,17 @@ them.
    - Otherwise the public token is exchanged in Rust.
    - The access token is stored in Keychain under a random credential reference; the connection row
      contains only that opaque reference and the environment.
-7. Complete Link in the browser. Only Plaid `credit` accounts are imported into this card ledger. If
-   the app imports 0 accounts, the chosen Item had no credit-card account; remove it or link a
-   different Item.
+7. Complete Link in the browser. Plaid `credit` and `depository` accounts are imported. Loans,
+   investments, and other products are not part of this build and are ignored. If the app imports 0
+   accounts, the chosen Item had no supported account; remove it or link a different Item.
 8. Initial Transactions Sync + balances run; Liabilities is attempted but shown
    unavailable/partial if the Item or plan lacks it.
 
 ### Sandbox test institution
 
-Choose a Sandbox institution with a credit card; for example First Platypus Bank (`ins_109508`)
-using Sandbox username `user_transactions_dynamic` and any non-blank password. The app imports only
-Plaid `credit` accounts.
+Choose a Sandbox institution with a credit card or a depository account; for example First Platypus
+Bank (`ins_109508`) using Sandbox username `user_transactions_dynamic` and any non-blank password.
+The app imports Plaid `credit` and `depository` accounts.
 
 ### Real institution (Trial/Production)
 
@@ -101,7 +102,7 @@ institution to pull older months; the ledger keeps the rows already imported.
 ## Duplicate prevention
 
 Cardinal keeps **one active Plaid Item per institution and environment**. This is a deliberate
-single-user policy: one bank login normally covers every card at that institution, and it avoids
+single-user policy: one bank login normally covers every card and account at that institution, and it avoids
 spending the finite Trial Item allowance on an accidental second link.
 
 - Link metadata from `/link/token/get` provides the institution id (and name when the id is absent).
@@ -173,7 +174,10 @@ removed; only `/item/remove` stops subscription billing.
 - [ ] Transactions Sync imports transactions; repeat sync is idempotent; cursor persists.
 - [ ] Balances appear; missing values are not fabricated as $0.00.
 - [ ] Liabilities reports supported or unavailable without deleting prior metadata.
-- [ ] Account mapping creates each credit account once; reconnect does not duplicate.
+- [ ] Account mapping creates each credit and depository account once; reconnect does not
+      duplicate.
+- [ ] Depository balances display as cash, separate from card debt; bank purchases count as
+      spending while transfers, card payments, and income do not.
 - [ ] Linking a bank whose institution already has an active Item is refused before public-token
       exchange; the connection count stays at one and no access token is requested.
 - [ ] **Update…** on a healthy connection and **Reconnect…** on an unhealthy one reuse the existing
@@ -185,6 +189,8 @@ removed; only `/item/remove` stops subscription billing.
 ### Sandbox
 
 - [ ] Sandbox institution with a credit card links.
+- [ ] Sandbox depository account links, shows a cash balance, and does not appear in credit
+      utilization or upcoming payments.
 - [ ] No real bank data is imported.
 
 ### Trial / Production
@@ -192,6 +198,8 @@ removed; only `/item/remove` stops subscription billing.
 - [ ] Production credentials are used; the connection row shows `production`.
 - [ ] The institution is the intended real institution, and account masks match what the owner
       expects.
+- [ ] Depository accounts, if present, show cash balances and keep transfers, card payments, and
+      income out of spending.
 - [ ] The Dashboard shows the expected Item and product usage.
 - [ ] Disconnect removes the real Item; confirm the Dashboard Item count decreases (Trial capacity
       is still consumed).

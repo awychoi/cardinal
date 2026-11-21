@@ -77,9 +77,9 @@ fn fixture_metadata_keeps_unknown_and_reported_zero_distinct() {
     let view = state
         .with_db(|conn, _h, _s| overview(conn, NaiveDate::from_ymd_opt(2026, 10, 23).unwrap()))
         .unwrap();
-    assert_eq!(view.balances.known_total_minor, 50_000);
-    assert_eq!(view.balances.accounts_missing_balance, 2);
-    assert!(!view.balances.complete);
+    assert_eq!(view.balances.card_known_total_minor, 50_000);
+    assert_eq!(view.balances.card_accounts_missing_balance, 2);
+    assert!(!view.balances.card_complete);
 
     let everyday = view
         .accounts

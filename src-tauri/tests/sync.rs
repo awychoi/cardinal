@@ -391,3 +391,120 @@ fn one_failed_connection_does_not_block_another() {
         .iter()
         .any(|r| r.connection_id == plaid_connection && r.status == "failed"));
 }
+
+struct DepositoryProvider;
+
+impl ProviderClient for DepositoryProvider {
+    fn capabilities(&self) -> ProviderCapabilities {
+        ProviderCapabilities {
+            transactions: Capability::Supported,
+            balances: Capability::Supported,
+            liabilities: Capability::Unsupported,
+        }
+    }
+    fn accounts(&self) -> ProviderResult<Vec<ProviderAccount>> {
+        Ok(vec![ProviderAccount {
+            provider_account_id: "checking-1".into(),
+            name: "Everyday Checking".into(),
+            mask: "1201".into(),
+            currency: "USD".into(),
+            account_type: "checking".into(),
+        }])
+    }
+    fn transactions_page(&self, cursor: Option<&str>) -> ProviderResult<TransactionsPage> {
+        if cursor.is_some() {
+            return Ok(TransactionsPage {
+                changes: vec![],
+                next_cursor: Some("done".into()),
+                has_more: false,
+            });
+        }
+        Ok(TransactionsPage {
+            changes: vec![
+                ProviderTransaction {
+                    provider_transaction_id: "bank-tx-purchase".into(),
+                    provider_account_id: "checking-1".into(),
+                    amount_minor: 8_240,
+                    currency: "USD".into(),
+                    description: "Whole Foods".into(),
+                    authorized_date: Some("2026-10-14".into()),
+                    posted_date: Some("2026-10-14".into()),
+                    pending: false,
+                    removed: false,
+                    pending_transaction_id: None,
+                    tx_type: "purchase".into(),
+                    category: Some("Groceries".into()),
+                },
+                ProviderTransaction {
+                    provider_transaction_id: "bank-tx-payment".into(),
+                    provider_account_id: "checking-1".into(),
+                    amount_minor: 100_000,
+                    currency: "USD".into(),
+                    description: "Card Payment".into(),
+                    authorized_date: Some("2026-10-15".into()),
+                    posted_date: Some("2026-10-15".into()),
+                    pending: false,
+                    removed: false,
+                    pending_transaction_id: None,
+                    tx_type: "transfer".into(),
+                    category: None,
+                },
+            ],
+            next_cursor: Some("done".into()),
+            has_more: false,
+        })
+    }
+    fn balances(&self) -> ProviderResult<Vec<ProviderBalance>> {
+        Ok(vec![ProviderBalance {
+            provider_account_id: "checking-1".into(),
+            current_balance_minor: 512_300,
+            available_credit_minor: None,
+            credit_limit_minor: None,
+            currency: "USD".into(),
+            as_of: None,
+        }])
+    }
+    fn liabilities(&self) -> ProviderResult<LiabilitiesResult> {
+        Ok(LiabilitiesResult {
+            capability: Capability::Unsupported,
+            rows: vec![],
+        })
+    }
+}
+
+#[test]
+fn provider_depository_accounts_sync_without_credit_metadata() {
+    let (_tmp, state, connection) = setup();
+    let result =
+        sync_connection_by_id_with_client(&state, &connection, &DepositoryProvider, "manual")
+            .unwrap();
+    assert_eq!(result.transactions_added, 2);
+    assert_eq!(result.balances_written, 1);
+
+    let (account_type, credit_limit): (String, Option<i64>) = state
+        .with_db(|conn, _h, _s| {
+            Ok(conn.query_row(
+                "SELECT account_type, credit_limit_minor FROM accounts WHERE source_kind = 'provider'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?)
+        })
+        .unwrap();
+    assert_eq!(account_type, "checking");
+    assert_eq!(credit_limit, None);
+    let (current, available, limit): (i64, Option<i64>, Option<i64>) = state
+        .with_db(|conn, _h, _s| {
+            Ok(conn.query_row(
+                "SELECT current_balance_minor, available_credit_minor, credit_limit_minor \
+                 FROM balance_snapshots WHERE provenance = 'provider'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )?)
+        })
+        .unwrap();
+    assert_eq!(current, 512_300);
+    assert_eq!(available, None);
+    assert_eq!(limit, None);
+    // Both rows exist so the ledger can exclude the transfer from spending.
+    assert_eq!(count(&state, "SELECT count(*) FROM transactions"), 2);
+}

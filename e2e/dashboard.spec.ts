@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { openLocked, openUnlocked } from "./helpers";
+import { openPrimaryView, openLocked, openUnlocked } from "./helpers";
 
 test.describe("read-only dashboard (browser mock)", () => {
   test("overview shows calendar-month and current-data metrics with demo labels", async ({
@@ -7,6 +7,8 @@ test.describe("read-only dashboard (browser mock)", () => {
   }) => {
     await openUnlocked(page);
     await expect(page.locator(".hero-balance")).toContainText("Current card balances");
+    await expect(page.locator(".hero-balance")).toContainText("Cash");
+    await expect(page.locator(".hero-balance")).toContainText("Net position");
     await expect(page.getByText("Upcoming reported payments")).toBeVisible();
     await expect(page.getByText("Pending in this month")).toBeVisible();
     await expect(page.getByText(/Balances and upcoming payments as of/i)).toBeVisible();
@@ -35,8 +37,12 @@ test.describe("read-only dashboard (browser mock)", () => {
 
   test("cards show due amount kinds without inventing an amount due", async ({ page }) => {
     await openUnlocked(page);
-    await page.getByRole("button", { name: "Cards", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Cards" })).toBeVisible();
+    await openPrimaryView(page, "Accounts");
+    await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Bank accounts" })).toBeVisible();
+    await expect(page.getByText("Everyday Checking (demo)").first()).toBeVisible();
+    await expect(page.getByText("$5,123.00").first()).toBeVisible();
+    await expect(page.getByText(/Cash, not an amount due/).first()).toBeVisible();
     await expect(page.getByText(/amount not reported/).first()).toBeVisible();
     await expect(page.getByText(/reported/).first()).toBeVisible();
     await expect(
@@ -87,13 +93,13 @@ test.describe("read-only dashboard (browser mock)", () => {
 
   test("a card click filters the ledger while keeping the month", async ({ page }) => {
     await openUnlocked(page);
-    await page.getByRole("button", { name: "Cards", exact: true }).click();
+    await openPrimaryView(page, "Accounts");
     await page.getByRole("button", { name: /Filter transactions to Freedom Unlimited/ }).click();
     await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
-    await expect(page.getByLabel("Filter by card")).not.toHaveValue("");
+    await expect(page.getByLabel("Filter by account")).not.toHaveValue("");
     await expect(page.getByText(/^\d+ rows$/)).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
-    await expect(page.getByLabel("Filter by card")).toHaveValue("");
+    await expect(page.getByLabel("Filter by account")).toHaveValue("");
   });
 
   test("ledger search, pending subtotal, and read-only detail panel work", async ({ page }) => {
@@ -131,7 +137,8 @@ test.describe("read-only dashboard (browser mock)", () => {
     // The ledger has nothing beyond the current month, so the forward arrow stops here.
     await expect(page.getByRole("button", { name: "Next month" })).toBeDisabled();
     const balancesBefore = await page
-      .locator(".hero-balance")
+      .locator(".hero-balance-block")
+      .first()
       .locator(".hero-balance-value")
       .innerText();
     const compositionBefore = await page
@@ -155,7 +162,8 @@ test.describe("read-only dashboard (browser mock)", () => {
     expect(compositionAfter).not.toBe(compositionBefore);
     expect(trendAfter).not.toBe(trendBefore);
     const balancesAfter = await page
-      .locator(".hero-balance")
+      .locator(".hero-balance-block")
+      .first()
       .locator(".hero-balance-value")
       .innerText();
     expect(balancesAfter).toBe(balancesBefore);

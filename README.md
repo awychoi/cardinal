@@ -2,9 +2,9 @@
 
 # Cardinal
 
-A local-first, encrypted personal finance app for macOS. It tracks one person's credit-card
-balances and calendar-month spending, and keeps everything on the Mac — no account, no cloud,
-no telemetry.
+A local-first, encrypted personal finance app for macOS. It tracks one person's credit-card and
+bank-account balances and calendar-month spending, and keeps everything on the Mac — no account,
+no cloud, no telemetry.
 
 Built with Tauri 2, React, TypeScript, Rust, and SQLCipher.
 
@@ -12,11 +12,13 @@ Built with Tauri 2, React, TypeScript, Rust, and SQLCipher.
 
 ## What it does
 
-- Calendar-month spending, kept separate from statement cycles.
-- Card balances and upcoming payments that stay current regardless of the month you're viewing.
+- Calendar-month spending across credit cards and bank accounts, kept separate from statement cycles.
+- Card balances, cash balances, and a net position that stay current regardless of the month you're viewing.
+- Upcoming card payments, with bank transfers, card payments, and income excluded from spending.
 - Pending, posted, refunds, fees, payments, and transfers are distinct states.
 - An encrypted ledger, unlocked with a passphrase typed into a native macOS sheet.
-- Works offline with demo data or CSV import; optional Plaid **Sandbox** or **Trial/Production** connection for sync.
+- Works offline with demo data, manual accounts, or CSV import; optional Plaid **Sandbox** or **Trial/Production** connection for sync.
+- Plaid links both credit and depository (checking/savings) accounts. Manual bank accounts accept a point-in-time cash balance.
 - One active Plaid Item per institution. A duplicate link is refused before Plaid is asked for an access token, and **Update**/**Reconnect** reuses the existing Item, so accidents cannot spend Trial Item capacity.
 
 ## Requirements
@@ -90,8 +92,10 @@ artifacts. CI (`.github/workflows/secret-scan.yml`) re-scans all history on ever
   completion stops before the access-token exchange and points to **Update**/**Reconnect** instead,
   so a duplicate cannot consume another Trial Item. Both environments are verified end to end:
   Sandbox on 2026-10-24 and Trial/Production on 2026-11-01 with a real production Item (4 credit
-  accounts). Live reconnect/update mode has not been exercised against a real Item, and Trial limits
-  and billing apply. The app is not affiliated with Plaid.
+  accounts). Depository accounts are implemented and covered by the test suite, but the live
+  verification Items contained credit accounts only. Live reconnect/update mode has not been
+  exercised against a real Item, and Trial limits and billing apply. The app is not affiliated with
+  Plaid.
 - The UI never receives the passphrase or provider tokens; those stay in Rust and the macOS
   Keychain.
 - Read [SECURITY.md](SECURITY.md) before relying on this for real data.
@@ -107,8 +111,9 @@ artifacts. CI (`.github/workflows/secret-scan.yml`) re-scans all history on ever
 
 Early and experimental. Interfaces, storage formats, and behavior can change. Plaid linking is
 verified in both Sandbox and Trial/Production — the production path with a real production Item
-(4 credit accounts, 2026-11-01). Live reconnect/update mode remains unverified. The macOS build is
-ad-hoc signed and not distribution-ready.
+(4 credit accounts, 2026-11-01); depository-account linking is not yet live-verified. Live
+reconnect/update mode remains unverified. The macOS build is ad-hoc signed and not
+distribution-ready.
 
 ## License
 

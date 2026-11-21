@@ -622,6 +622,10 @@ pub fn map_provider_account(account: &PlaidAccount) -> ProviderAccount {
         (Some("credit"), Some("credit card")) => "credit_card",
         (Some("credit"), Some("paypal")) => "credit_card",
         (Some("credit"), _) => "line_of_credit",
+        (Some("depository"), Some("checking")) => "checking",
+        (Some("depository"), Some("cash management" | "ebt")) => "checking",
+        (Some("depository"), Some("savings" | "money market" | "cd" | "hsa")) => "savings",
+        (Some("depository"), _) => "depository",
         (Some("loan"), _) => "other",
         _ => "other",
     };
@@ -642,11 +646,20 @@ pub fn map_provider_account(account: &PlaidAccount) -> ProviderAccount {
 }
 
 pub fn map_provider_balance(account: &PlaidAccount) -> ProviderBalance {
+    let credit = account.account_type.as_deref() == Some("credit");
     ProviderBalance {
         provider_account_id: account.account_id.clone(),
         current_balance_minor: account.balances.current.and_then(to_minor).unwrap_or(0),
-        available_credit_minor: account.balances.available.and_then(to_minor),
-        credit_limit_minor: account.balances.limit.and_then(to_minor),
+        available_credit_minor: if credit {
+            account.balances.available.and_then(to_minor)
+        } else {
+            None
+        },
+        credit_limit_minor: if credit {
+            account.balances.limit.and_then(to_minor)
+        } else {
+            None
+        },
         currency: currency(
             account.balances.iso_currency_code.clone(),
             account.balances.unofficial_currency_code.clone(),
@@ -675,6 +688,10 @@ pub fn map_provider_transaction(tx: &PlaidTransaction) -> ProviderTransaction {
         "LOAN_PAYMENTS" => "payment",
         "BANK_FEES" => "fee",
         "TRANSFER_IN" | "TRANSFER_OUT" => "transfer",
+        // Paychecks, interest earned, and other inflows on a depository
+        // account are not merchant refunds. Treating them as refunds would
+        // reduce measured spending every payday.
+        "INCOME" => "other",
         _ if amount_minor < 0 => "refund",
         _ => "purchase",
     };
@@ -737,7 +754,12 @@ impl ProviderClient for PlaidProvider {
         Ok(response
             .accounts
             .iter()
-            .filter(|account| account.account_type.as_deref() == Some("credit"))
+            .filter(|account| {
+                matches!(
+                    account.account_type.as_deref(),
+                    Some("credit" | "depository")
+                )
+            })
             .map(map_provider_account)
             .collect())
     }
@@ -777,8 +799,10 @@ impl ProviderClient for PlaidProvider {
             .accounts
             .iter()
             .filter(|account| {
-                account.account_type.as_deref() == Some("credit")
-                    && account.balances.current.is_some()
+                matches!(
+                    account.account_type.as_deref(),
+                    Some("credit" | "depository")
+                ) && account.balances.current.is_some()
             })
             .map(map_provider_balance)
             .collect())
@@ -860,6 +884,59 @@ mod tests {
         let balance = map_provider_balance(&account);
         assert_eq!(balance.current_balance_minor, 12_345);
         assert_eq!(balance.credit_limit_minor, Some(100_000));
+    }
+
+    #[test]
+    fn maps_depository_accounts_without_credit_fields() {
+        let account = PlaidAccount {
+            account_id: "acct-checking".into(),
+            name: Some("Everyday Checking".into()),
+            official_name: None,
+            mask: Some("4101".into()),
+            account_type: Some("depository".into()),
+            subtype: Some("checking".into()),
+            balances: PlaidBalances {
+                current: Some(5_123.0),
+                available: Some(5_000.0),
+                limit: None,
+                iso_currency_code: Some("USD".into()),
+                unofficial_currency_code: None,
+            },
+        };
+        let mapped = map_provider_account(&account);
+        assert_eq!(mapped.account_type, "checking");
+        let balance = map_provider_balance(&account);
+        assert_eq!(balance.current_balance_minor, 512_300);
+        assert_eq!(balance.available_credit_minor, None);
+        assert_eq!(balance.credit_limit_minor, None);
+
+        let savings = PlaidAccount {
+            subtype: Some("money market".into()),
+            ..account
+        };
+        assert_eq!(map_provider_account(&savings).account_type, "savings");
+    }
+
+    #[test]
+    fn income_is_not_a_refund() {
+        let tx = PlaidTransaction {
+            transaction_id: "tx-paycheck".into(),
+            account_id: "acct-checking".into(),
+            amount: -3_500.0,
+            iso_currency_code: Some("USD".into()),
+            name: "Payroll".into(),
+            merchant_name: None,
+            authorized_date: None,
+            date: Some("2026-10-15".into()),
+            pending: false,
+            pending_transaction_id: None,
+            personal_finance_category: Some(PersonalFinanceCategory {
+                primary: Some("INCOME".into()),
+                detailed: Some("INCOME_WAGES".into()),
+            }),
+            category: None,
+        };
+        assert_eq!(map_provider_transaction(&tx).tx_type, "other");
     }
 
     #[test]

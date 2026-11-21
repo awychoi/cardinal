@@ -133,7 +133,7 @@ const options = z
   .strictObject({
     cardArt: z
       .enum(["faces", "tiles"])
-      .describe("faces = physical card art in the Cards view; tiles = data tiles"),
+      .describe("faces = physical card art in the Accounts view; tiles = data tiles"),
     density: z
       .enum(["comfortable", "compact"])
       .describe("comfortable = airy rows; compact = denser tables and panels"),

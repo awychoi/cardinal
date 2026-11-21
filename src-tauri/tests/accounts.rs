@@ -26,6 +26,7 @@ fn input(name: &str) -> AccountInput {
         currency: "USD".into(),
         credit_limit_minor: Some(500_000),
         include_in_overview: true,
+        current_balance_minor: None,
     }
 }
 
@@ -145,4 +146,100 @@ fn account_text_is_cleaned_and_bounded() {
         .with_db(|conn, _h, _s| create_manual(conn, &trimmed))
         .unwrap();
     assert_eq!(created.display_name, "Spaced Card");
+}
+
+#[test]
+fn depository_accounts_hold_manual_cash_balances() {
+    let (_tmp, state) = setup();
+    let checking = AccountInput {
+        issuer: "Fixture Bank".into(),
+        display_name: "Everyday Checking".into(),
+        last_four: Some("4101".into()),
+        account_type: AccountType::Checking,
+        currency: "USD".into(),
+        credit_limit_minor: None,
+        current_balance_minor: Some(512_300),
+        include_in_overview: true,
+    };
+    let account = state
+        .with_db(|conn, _h, _s| create_manual(conn, &checking))
+        .unwrap();
+    assert_eq!(account.account_type, "checking");
+    let snapshots: i64 = state
+        .with_db(|conn, _h, _s| {
+            Ok(conn.query_row(
+                "SELECT count(*) FROM balance_snapshots WHERE account_id = ?1 AND provenance = 'manual'",
+                [&account.id],
+                |row| row.get(0),
+            )?)
+        })
+        .unwrap();
+    assert_eq!(snapshots, 1);
+
+    // Saving the form without changing the balance must not pile up
+    // indistinguishable point-in-time snapshots.
+    state
+        .with_db(|conn, _h, _s| update_manual(conn, &account.id, &checking))
+        .unwrap();
+    let snapshots: i64 = state
+        .with_db(|conn, _h, _s| {
+            Ok(conn.query_row(
+                "SELECT count(*) FROM balance_snapshots WHERE account_id = ?1 AND provenance = 'manual'",
+                [&account.id],
+                |row| row.get(0),
+            )?)
+        })
+        .unwrap();
+    assert_eq!(snapshots, 1);
+
+    let mut changed = checking.clone();
+    changed.current_balance_minor = Some(-2_500);
+    state
+        .with_db(|conn, _h, _s| update_manual(conn, &account.id, &changed))
+        .unwrap();
+    let (count, latest): (i64, i64) = state
+        .with_db(|conn, _h, _s| {
+            Ok((
+                conn.query_row(
+                    "SELECT count(*) FROM balance_snapshots WHERE account_id = ?1 AND provenance = 'manual'",
+                    [&account.id],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT current_balance_minor FROM balance_snapshots WHERE account_id = ?1 \
+                     ORDER BY retrieved_at DESC, rowid DESC LIMIT 1",
+                    [&account.id],
+                    |row| row.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+    assert_eq!(count, 2);
+    assert_eq!(
+        latest, -2_500,
+        "an overdrawn account is not silently zeroed"
+    );
+
+    // Credit products keep their existing shape: no manual cash balance.
+    let mut with_balance = input("Bad Credit");
+    with_balance.current_balance_minor = Some(1_000);
+    assert!(state
+        .with_db(|conn, _h, _s| create_manual(conn, &with_balance))
+        .is_err());
+    let mut with_limit = checking.clone();
+    with_limit.credit_limit_minor = Some(100_000);
+    with_limit.current_balance_minor = None;
+    assert!(state
+        .with_db(|conn, _h, _s| create_manual(conn, &with_limit))
+        .is_err());
+
+    // A cash account cannot be turned into a card (or vice versa) in place:
+    // the same positive number would flip from an asset to a liability.
+    let mut cross_class = checking;
+    cross_class.account_type = AccountType::CreditCard;
+    cross_class.current_balance_minor = None;
+    cross_class.credit_limit_minor = Some(100_000);
+    assert!(state
+        .with_db(|conn, _h, _s| update_manual(conn, &account.id, &cross_class))
+        .is_err());
 }

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { openAccountsTab, openSettingsSection, openUnlocked } from "./helpers";
+import { openAccountsTab, openPrimaryView, openSettingsSection, openUnlocked } from "./helpers";
 
 test.describe("edits, rules, metadata, and CSV workflow (browser mock)", () => {
   test("edits a transaction override and clears it without changing the source", async ({
@@ -35,7 +35,7 @@ test.describe("edits, rules, metadata, and CSV workflow (browser mock)", () => {
     await page.getByLabel("Valid through").fill("2026-11-15");
     await page.getByRole("button", { name: "Save payment details" }).click();
     await expect(page.getByText(/Payment details saved/)).toBeVisible();
-    await page.getByRole("button", { name: "Cards", exact: true }).click();
+    await openPrimaryView(page, "Accounts");
     await expect(page.getByText(/Due source: manual/).first()).toBeVisible();
   });
 

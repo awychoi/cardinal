@@ -7,7 +7,8 @@ actually do. [SECURITY.md](SECURITY.md) states the security claims and residual 
 
 **Status:** local, single-user Apple Silicon build, ad-hoc signed and not distribution-ready. Plaid
 linking is verified in Sandbox and, since 2026-11-01, in Trial/Production with a real production
-Item (4 credit accounts); live reconnect/update mode is unverified.
+Item (4 credit accounts). Depository accounts are supported and tested but were not present in the
+live Items; live reconnect/update mode is unverified.
 
 ## 1. Process and trust boundaries
 
@@ -59,8 +60,15 @@ Cardinal is a Tauri 2 application.
 
 Domain tables cover accounts, transactions, transaction overrides, merchant rules, balance and
 payment snapshots, manual payment metadata, CSV import batches, sync runs, connections, security
-events, and settings. Live provider snapshots are separated from restored snapshots by a `restored`
-flag so a rollback never masquerades as fresh bank data.
+events, and settings. Accounts are either credit products or depository accounts (`checking`,
+`savings`, and a generic `depository` fallback); migration 5 widens the original credit-only type
+constraint by rebuilding the table with foreign-key actions disabled, then rechecks foreign keys.
+Live provider snapshots are separated from restored snapshots by a `restored` flag so a rollback
+never masquerades as fresh bank data.
+
+Card debt and cash are separate figures. `BalanceTotals` reports card and cash subtotals
+independently and derives `netPositionMinor` as cash minus card debt; a missing balance keeps the
+position marked incomplete rather than treating the account as $0.00.
 
 ## 3. Provider credentials and the Plaid lifecycle
 
@@ -85,9 +93,12 @@ A connection is linked in Rust:
    ledger row records provider, environment, institution, status, and cursor.
 
 Sync runs in Rust after unlock, keeps a per-connection cursor, and only advances it after the page
-commits. A re-authentication error demotes the connection to `reconnect_required`; other failures
-record a sanitized error. Scheduled sync targets 08:00 and 20:00 local time and never runs while the
-vault is locked.
+commits. It maps Plaid `credit` and `depository` accounts; balances for depository accounts are cash,
+so available-credit and limit fields stay null. Plaid personal-finance categories keep transfers,
+card payments, and income out of the spending total even when they move through a checking account.
+A re-authentication error demotes the connection to `reconnect_required`; other failures record a
+sanitized error. Scheduled sync targets 08:00 and 20:00 local time and never runs while the vault is
+locked.
 
 **Update/Reconnect** uses Plaid update mode with the stored token: it repairs or extends the existing
 Item and does not create another one. A connection without a token (`newlink-…` reference) instead

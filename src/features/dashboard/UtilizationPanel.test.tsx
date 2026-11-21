@@ -49,6 +49,22 @@ describe("UtilizationPanel", () => {
     expect(screen.getByText(/1 card without a reported limit is not counted/)).toBeInTheDocument();
   });
 
+  it("ignores bank accounts because they have no credit limit", () => {
+    const bank = {
+      ...mockDashboard("demo", "2026-10").overview.accounts[0],
+      accountId: "aaaaaaaa-0000-4000-8000-000000000009",
+      displayName: "Checking",
+      accountType: "checking",
+      currentBalanceMinor: 500_000,
+      creditLimitMinor: null,
+    };
+    render(<UtilizationPanel accounts={[withLimit(1, 250_000, 1_000_000), bank]} />);
+
+    expect(totalLabel()).toBe("25% used");
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.queryByText(/card without a reported limit/)).not.toBeInTheDocument();
+  });
+
   it("counts only included USD accounts", () => {
     render(
       <UtilizationPanel

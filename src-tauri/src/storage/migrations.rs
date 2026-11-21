@@ -37,6 +37,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "restored_provider_snapshots",
         sql: include_str!("../../migrations/0004_restored_provider_snapshots.sql"),
     },
+    Migration {
+        version: 5,
+        name: "depository_accounts",
+        sql: include_str!("../../migrations/0005_depository_accounts.sql"),
+    },
 ];
 
 pub fn supported_schema_version() -> u32 {
@@ -70,6 +75,32 @@ fn applied(conn: &Connection) -> AppResult<Vec<(u32, String)>> {
     rows.collect::<Result<Vec<_>, _>>().map_err(AppError::from)
 }
 
+fn foreign_keys_enabled(conn: &Connection) -> AppResult<bool> {
+    let enabled: i64 = conn.query_row("PRAGMA foreign_keys", [], |row| row.get(0))?;
+    Ok(enabled == 1)
+}
+
+fn set_foreign_keys(conn: &Connection, enabled: bool) -> AppResult<()> {
+    // This pragma is a no-op inside a transaction; verify the intended state
+    // instead of assuming it took effect. A migration that rebuilds a parent
+    // table must never run with cascading deletes armed.
+    conn.execute_batch(if enabled {
+        "PRAGMA foreign_keys = ON;"
+    } else {
+        "PRAGMA foreign_keys = OFF;"
+    })?;
+    if foreign_keys_enabled(conn)? != enabled {
+        return Err(AppError::Database);
+    }
+    Ok(())
+}
+
+fn foreign_key_violation(conn: &Connection) -> AppResult<bool> {
+    let mut stmt = conn.prepare("PRAGMA foreign_key_check")?;
+    let mut rows = stmt.query([])?;
+    Ok(rows.next()?.is_some())
+}
+
 /// Apply pending migrations. `dek` is needed for the pre-migration encrypted
 /// snapshot; `snapshot_dir` is the vault directory.
 pub fn run_migrations(
@@ -100,36 +131,65 @@ pub fn run_migrations(
         return Ok(already.iter().map(|(v, _)| *v).max().unwrap_or(0));
     }
 
-    // Snapshot before changing a non-empty ledger. An initial empty database
-    // does not need a snapshot.
+    // A pre-migration snapshot is only needed for a non-empty ledger. An
+    // initial empty database does not need one.
     let table_count: i64 = conn.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> 'schema_migrations'",
         [],
         |row| row.get(0),
     )?;
-    if table_count > 0 {
-        let target = pending.last().map(|m| m.version).unwrap_or(supported);
-        let stamp = now_rfc3339().replace([':', '-'], "");
-        let path = snapshot_dir.join(format!("pre-migration-v{target}-{stamp}.cmdb"));
-        create_encrypted_snapshot(conn, &path, dek)?;
+
+    // Migration 5 rebuilds the accounts table. Foreign-key actions are
+    // disabled for the DDL and verified again below, because dropping a parent
+    // table with enforcement on performs an implicit delete that cascades.
+    let fk_on = foreign_keys_enabled(conn)?;
+    if fk_on {
+        set_foreign_keys(conn, false)?;
     }
 
-    for migration in pending {
-        let tx = conn.unchecked_transaction()?;
-        tx.execute_batch(migration.sql)?;
-        tx.execute(
-            "INSERT INTO schema_migrations (version, name, checksum, applied_at) VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![
-                migration.version,
-                migration.name,
-                checksum(migration.sql),
-                now_rfc3339()
-            ],
-        )?;
-        tx.commit()?;
+    let outcome = (|| -> AppResult<u32> {
+        if table_count > 0 {
+            let target = pending.last().map(|m| m.version).unwrap_or(supported);
+            let stamp = now_rfc3339().replace([':', '-'], "");
+            let path = snapshot_dir.join(format!("pre-migration-v{target}-{stamp}.cmdb"));
+            create_encrypted_snapshot(conn, &path, dek)?;
+        }
+
+        for migration in &pending {
+            let tx = conn.unchecked_transaction()?;
+            tx.execute_batch(migration.sql)?;
+            tx.execute(
+                "INSERT INTO schema_migrations (version, name, checksum, applied_at) VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![
+                    migration.version,
+                    migration.name,
+                    checksum(migration.sql),
+                    now_rfc3339()
+                ],
+            )?;
+            tx.commit()?;
+        }
+
+        Ok(applied(conn)?.iter().map(|(v, _)| *v).max().unwrap_or(0))
+    })();
+
+    let restored = if fk_on {
+        set_foreign_keys(conn, true)
+    } else {
+        Ok(())
+    };
+
+    let version = match (outcome, restored) {
+        (Ok(version), Ok(())) => version,
+        (Ok(_), Err(error)) => return Err(error),
+        (Err(error), _) => return Err(error),
+    };
+
+    if fk_on && foreign_key_violation(conn)? {
+        return Err(AppError::Database);
     }
 
-    Ok(applied(conn)?.iter().map(|(v, _)| *v).max().unwrap_or(0))
+    Ok(version)
 }
 
 #[cfg(test)]
@@ -138,11 +198,67 @@ mod tests {
 
     #[test]
     fn supported_version_matches_latest_migration() {
-        assert_eq!(supported_schema_version(), 4);
+        assert_eq!(supported_schema_version(), 5);
         assert_eq!(MIGRATIONS[0].version, 1);
         assert_eq!(MIGRATIONS[1].version, 2);
         assert_eq!(MIGRATIONS[2].version, 3);
         assert_eq!(MIGRATIONS[3].version, 4);
-        assert!(!checksum(MIGRATIONS[3].sql).is_empty());
+        assert_eq!(MIGRATIONS[4].version, 5);
+        assert!(!checksum(MIGRATIONS[4].sql).is_empty());
+    }
+
+    #[test]
+    fn depository_migration_preserves_accounts_and_child_rows() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        for migration in &MIGRATIONS[..4] {
+            conn.execute_batch(migration.sql).unwrap();
+        }
+        conn.execute(
+            "INSERT INTO accounts (id, issuer, display_name, last_four, account_type, currency, \
+                credit_limit_minor, include_in_overview, archived, source_kind, created_at, updated_at) \
+             VALUES ('11111111-1111-4111-8111-111111111111', 'Fixture Bank', 'Everyday', '1111', \
+                'credit_card', 'USD', 500000, 1, 0, 'manual', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO manual_payment_metadata (account_id, statement_balance_minor, \
+                minimum_due_minor, next_due_date, valid_through_date, created_at, updated_at) \
+             VALUES ('11111111-1111-4111-8111-111111111111', 120000, 2500, '2026-02-01', NULL, \
+                '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+
+        // Match the runner: enforcement is off for the rebuild.
+        set_foreign_keys(&conn, false).unwrap();
+        conn.execute_batch(MIGRATIONS[4].sql).unwrap();
+        set_foreign_keys(&conn, true).unwrap();
+
+        assert!(!foreign_key_violation(&conn).unwrap());
+        let account_type: String = conn
+            .query_row(
+                "SELECT account_type FROM accounts WHERE id = '11111111-1111-4111-8111-111111111111'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(account_type, "credit_card");
+        let children: i64 = conn
+            .query_row("SELECT count(*) FROM manual_payment_metadata", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(children, 1, "the rebuild must not cascade into children");
+
+        conn.execute(
+            "INSERT INTO accounts (id, issuer, display_name, last_four, account_type, currency, \
+                credit_limit_minor, include_in_overview, archived, source_kind, created_at, updated_at) \
+             VALUES ('22222222-2222-4222-8222-222222222222', 'Fixture Bank', 'Checking', '2222', \
+                'checking', 'USD', NULL, 1, 0, 'manual', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
     }
 }

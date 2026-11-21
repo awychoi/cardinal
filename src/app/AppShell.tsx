@@ -10,7 +10,7 @@ import {
 import { friendlyError } from "../lib/bridge/errors";
 import { OverviewView } from "../features/dashboard/OverviewView";
 import { OverviewSkeleton } from "../features/dashboard/OverviewSkeleton";
-import { CardsView } from "../features/dashboard/CardsView";
+import { AccountsView } from "../features/dashboard/AccountsView";
 import { LedgerView } from "../features/dashboard/LedgerView";
 import {
   SettingsView,
@@ -24,18 +24,18 @@ import { Button } from "../components/Button";
 import { formatMonthRange, monthLabel } from "../lib/formatting";
 import type { Theme, ThemeMode } from "../theme/schema";
 
-type View = "overview" | "cards" | "transactions" | "settings";
+type View = "overview" | "accounts" | "transactions" | "settings";
 
 const VIEWS: { id: View; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "cards", label: "Cards" },
+  { id: "accounts", label: "Accounts" },
   { id: "transactions", label: "Transactions" },
   { id: "settings", label: "Settings" },
 ];
 
 const NAV_ICONS: Record<View, string> = {
   overview: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z",
-  cards: "M1.5 3.5h13v9h-13zM1.5 6.5h13",
+  accounts: "M1.5 3.5h13v9h-13zM1.5 6.5h13",
   transactions: "M2 4h12M2 8h12M2 12h7",
   settings: "M2 5.5h12M2 10.5h12",
 };
@@ -443,12 +443,12 @@ export function AppShell({
                 dashboard={dashboard}
                 theme={theme}
                 onAddAccount={addAccount}
-                onOpenCards={() => setView("cards")}
+                onOpenAccounts={() => setView("accounts")}
                 onOpenSettings={() => openSettings("accounts", "connections")}
                 onOpenTransactions={() => setView("transactions")}
               />
-            ) : view === "cards" ? (
-              <CardsView dashboard={dashboard} theme={theme} onFilterAccount={filterAccount} />
+            ) : view === "accounts" ? (
+              <AccountsView dashboard={dashboard} theme={theme} onFilterAccount={filterAccount} />
             ) : view === "transactions" ? (
               <LedgerView
                 dashboard={dashboard}

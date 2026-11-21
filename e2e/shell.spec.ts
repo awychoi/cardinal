@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { openAccountsTab, openLocked, openSettingsSection, openUnlocked } from "./helpers";
+import {
+  openAccountsTab,
+  openLocked,
+  openPrimaryView,
+  openSettingsSection,
+  openUnlocked,
+} from "./helpers";
 
 test.describe("secure shell (browser mock)", () => {
   test("starts locked with no password input", async ({ page }) => {
@@ -93,13 +99,13 @@ test.describe("secure shell (browser mock)", () => {
     await openUnlocked(page);
     await page.getByRole("button", { name: "Lock now" }).click();
     await expect(page.getByText(/Your encrypted ledger is locked/)).toBeVisible();
-    await expect(page.getByText("Your cards, in one quiet place.")).toHaveCount(0);
+    await expect(page.getByText("Your accounts, in one quiet place.")).toHaveCount(0);
   });
 
   test("primary navigation and the supplier toggle preserve the month", async ({ page }) => {
     await openUnlocked(page);
-    await page.getByRole("button", { name: "Cards", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Cards" })).toBeVisible();
+    await openPrimaryView(page, "Accounts");
+    await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Transactions", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
     await page.getByRole("button", { name: "By supplier" }).click();
@@ -119,8 +125,8 @@ test.describe("secure shell (browser mock)", () => {
     await page.getByRole("button", { name: "Unlock vault" }).click();
     await expect(page.getByText("Connect your bank.")).toBeVisible();
     await expect(page.getByText(/macOS Keychain/)).toBeVisible();
-    await page.getByRole("button", { name: "Add a card manually" }).click();
-    await expect(page.getByText("Add a card manually.")).toBeVisible();
+    await page.getByRole("button", { name: "Add an account manually" }).click();
+    await expect(page.getByText("Add an account manually.")).toBeVisible();
     await page.getByLabel("Issuer").fill("Chase");
     await page.getByLabel("Display name").fill("Wizard Card");
     await page.getByLabel(/Last four/).fill("1234");
@@ -170,24 +176,25 @@ test.describe("secure shell (browser mock)", () => {
     await page.getByRole("button", { name: "Unlock vault" }).click();
     await expect(page.getByText("Connect your bank.")).toBeVisible();
     await page.getByRole("button", { name: "Skip setup" }).click();
-    await expect(page.getByText("Your cards, in one quiet place.")).toBeVisible();
+    await expect(page.getByText("Your accounts, in one quiet place.")).toBeVisible();
     await page.getByRole("button", { name: "Add account" }).click();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Accounts", exact: true })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(
+      page
+        .getByRole("navigation", { name: "Settings sections" })
+        .getByRole("button", { name: "Accounts", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("tab", { name: "All accounts", exact: true })).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    await expect(page.getByRole("button", { name: "Add card manually" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add account manually" })).toBeVisible();
   });
 
   test("manages accounts in settings and archives reversibly", async ({ page }) => {
     await openUnlocked(page);
     await openAccountsTab(page, "All accounts");
-    await page.getByRole("button", { name: "Add card manually" }).click();
+    await page.getByRole("button", { name: "Add account manually" }).click();
     await page.getByLabel("Issuer").fill("Bilt");
     await page.getByLabel("Display name").fill("Local Test Card");
     await page.getByLabel(/Last four/).fill("4321");
@@ -206,6 +213,23 @@ test.describe("secure shell (browser mock)", () => {
       .filter({ has: page.getByText("Local Test Card", { exact: true }) });
     await archivedRow.getByRole("button", { name: "Restore" }).click();
     await expect(page.getByText("Local Test Card", { exact: true })).toBeVisible();
+  });
+
+  test("adds a manual bank account with a cash balance", async ({ page }) => {
+    await openUnlocked(page);
+    await openAccountsTab(page, "All accounts");
+    await page.getByRole("button", { name: "Add account manually" }).click();
+    await page.getByLabel("Issuer").fill("Local Bank");
+    await page.getByLabel("Display name").fill("Test Checking");
+    await page.getByLabel("Account type").selectOption("checking");
+    await page.getByLabel(/Current balance/).fill("1234.56");
+    await page.getByRole("button", { name: "Add account" }).click();
+    await expect(page.getByText("Test Checking", { exact: true })).toBeVisible();
+
+    await openPrimaryView(page, "Accounts");
+    await expect(page.getByRole("heading", { name: "Bank accounts" })).toBeVisible();
+    await expect(page.getByText("Test Checking", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("$1,234.56").first()).toBeVisible();
   });
 
   test("persists the window close behavior setting", async ({ page }) => {

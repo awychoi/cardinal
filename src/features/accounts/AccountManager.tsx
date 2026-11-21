@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { command, type Account, type AccountPayload } from "../../lib/bridge";
+import {
+  accountTypeLabel,
+  command,
+  isDepositoryAccount,
+  type Account,
+  type AccountPayload,
+} from "../../lib/bridge";
 import { friendlyError } from "../../lib/bridge/errors";
 import { Button } from "../../components/Button";
 import { AccountForm } from "./AccountForm";
@@ -15,7 +21,7 @@ function accountMeta(account: Account): string {
   return [
     account.issuer,
     account.lastFour ? `•••• ${account.lastFour}` : null,
-    account.accountType.replaceAll("_", " "),
+    accountTypeLabel(account.accountType),
   ]
     .filter((value): value is string => Boolean(value))
     .join(" · ");
@@ -60,10 +66,14 @@ export function AccountManager({
     try {
       if (mode.kind === "edit") {
         await command("account_update", { id: mode.account.id, account: payload });
-        setMessage("Card updated.");
+        setMessage("Account updated.");
       } else {
         await command("account_create", payload);
-        setMessage("Card added. You can add its payment details below.");
+        setMessage(
+          isDepositoryAccount(payload.accountType)
+            ? "Account added."
+            : "Account added. You can add its payment details below.",
+        );
       }
       setMode({ kind: "list" });
       await load(includeArchived);
@@ -80,7 +90,7 @@ export function AccountManager({
     setError(null);
     try {
       await command("account_archive", { id: account.id, archived });
-      setMessage(archived ? "Card archived." : "Card restored.");
+      setMessage(archived ? "Account archived." : "Account restored.");
       setArchiving(null);
       await load(includeArchived);
       onChanged?.();
@@ -93,9 +103,9 @@ export function AccountManager({
 
   const heading =
     mode.kind === "create"
-      ? "Add a card"
+      ? "Add an account"
       : mode.kind === "edit"
-        ? "Edit card"
+        ? "Edit account"
         : mode.kind === "payment"
           ? "Payment details"
           : "All accounts";
@@ -103,10 +113,10 @@ export function AccountManager({
     mode.kind === "create"
       ? "No bank connection needed. Connect or import from the tabs above."
       : mode.kind === "edit"
-        ? "Edit this card’s details; past transactions keep their records."
+        ? "Edit this account’s details; past transactions keep their records."
         : mode.kind === "payment"
           ? `Optional statement and due-date facts for ${mode.account.displayName}. They survive syncs.`
-          : "Every card in one list, labeled by source.";
+          : "Every account in one list, labeled by source.";
 
   return (
     <section className="panel panel-wide" aria-labelledby="accounts-title">
@@ -117,7 +127,7 @@ export function AccountManager({
         </div>
         {mode.kind === "list" && !readOnly ? (
           <Button variant="secondary" onClick={() => setMode({ kind: "create" })}>
-            Add card manually
+            Add account manually
           </Button>
         ) : null}
       </div>
@@ -164,11 +174,11 @@ export function AccountManager({
       ) : (
         <>
           {loading && accounts.length === 0 ? (
-            <p className="muted">Loading cards…</p>
+            <p className="muted">Loading accounts…</p>
           ) : accounts.length === 0 ? (
             <p className="muted">
-              No cards yet. Add one manually, connect a bank under Bank connections, or import a CSV
-              file.
+              No accounts yet. Add one manually, connect a bank under Bank connections, or import a
+              CSV file.
             </p>
           ) : (
             <table className="accounts-table">
@@ -223,13 +233,15 @@ export function AccountManager({
                               >
                                 Edit
                               </Button>
-                              <Button
-                                variant="ghost"
-                                className="btn-small"
-                                onClick={() => setMode({ kind: "payment", account })}
-                              >
-                                Payment details
-                              </Button>
+                              {!isDepositoryAccount(account.accountType) ? (
+                                <Button
+                                  variant="ghost"
+                                  className="btn-small"
+                                  onClick={() => setMode({ kind: "payment", account })}
+                                >
+                                  Payment details
+                                </Button>
+                              ) : null}
                             </>
                           ) : null}
                           <Button

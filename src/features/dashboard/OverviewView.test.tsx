@@ -10,7 +10,7 @@ import { OverviewView } from "./OverviewView";
 function renderOverview(themeId = "ledger", dashboard = mockDashboard("demo", "2026-10")) {
   const callbacks = {
     onAddAccount: vi.fn(),
-    onOpenCards: vi.fn(),
+    onOpenAccounts: vi.fn(),
     onOpenSettings: vi.fn(),
     onOpenTransactions: vi.fn(),
   };
@@ -19,7 +19,7 @@ function renderOverview(themeId = "ledger", dashboard = mockDashboard("demo", "2
       dashboard={dashboard}
       theme={getTheme(themeId)}
       onAddAccount={callbacks.onAddAccount}
-      onOpenCards={callbacks.onOpenCards}
+      onOpenAccounts={callbacks.onOpenAccounts}
       onOpenSettings={callbacks.onOpenSettings}
       onOpenTransactions={callbacks.onOpenTransactions}
     />,
@@ -37,9 +37,11 @@ describe("OverviewView", () => {
   it("renders the hero, due rail, balances, charts, and attention card", async () => {
     renderOverview();
 
-    expect(screen.getByText("$420.16")).toBeInTheDocument();
+    expect(screen.getByText("$502.56")).toBeInTheDocument();
     expect(screen.getByText("Pending in this month")).toBeInTheDocument();
     expect(screen.getByText("Current card balances")).toBeInTheDocument();
+    expect(screen.getByText("Cash")).toBeInTheDocument();
+    expect(screen.getByText("Net position")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Upcoming reported payments" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Needs attention" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Gross spending by category/i })).toBeInTheDocument();
@@ -53,7 +55,7 @@ describe("OverviewView", () => {
     renderOverview("ledger", dashboard);
 
     const hero = screen.getByRole("region", { name: "Net spending" });
-    const total = formatMoney(dashboard.overview.balances.knownTotalMinor);
+    const total = formatMoney(dashboard.overview.balances.cardKnownTotalMinor);
     expect(within(hero).getByText("Current card balances")).toBeInTheDocument();
     expect(within(hero).getByText(total)).toBeInTheDocument();
     // The aggregate has exactly one home; the old card-balances metric is gone.
@@ -101,7 +103,7 @@ describe("OverviewView", () => {
         dashboard={mockDashboard("demo", "2026-10")}
         theme={getTheme("graphite")}
         onAddAccount={vi.fn()}
-        onOpenCards={vi.fn()}
+        onOpenAccounts={vi.fn()}
         onOpenSettings={vi.fn()}
         onOpenTransactions={vi.fn()}
       />,
@@ -126,7 +128,7 @@ describe("OverviewView", () => {
         dashboard={mockDashboard("demo", "2026-10")}
         theme={hidden}
         onAddAccount={vi.fn()}
-        onOpenCards={vi.fn()}
+        onOpenAccounts={vi.fn()}
         onOpenSettings={vi.fn()}
         onOpenTransactions={vi.fn()}
       />,
@@ -152,7 +154,7 @@ describe("OverviewView", () => {
     const empty = { ...dashboard, overview: { ...dashboard.overview, accounts: [] } };
     const { onAddAccount } = renderOverview("ledger", empty);
     expect(
-      screen.getByRole("heading", { name: /Your cards, in one quiet place/ }),
+      screen.getByRole("heading", { name: /Your accounts, in one quiet place/ }),
     ).toBeInTheDocument();
     screen.getByRole("button", { name: "Add account" }).click();
     expect(onAddAccount).toHaveBeenCalledOnce();

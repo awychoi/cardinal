@@ -94,8 +94,9 @@ test.describe("settings sections (browser mock)", () => {
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
     await page.getByRole("button", { name: "Settings", exact: true }).click();
 
+    const settingsNav = page.getByRole("navigation", { name: "Settings sections" });
     for (const label of ["Appearance", "Lock & idle", "Accounts", "Security events", "About"]) {
-      await expect(page.getByRole("button", { name: label, exact: true })).toBeVisible();
+      await expect(settingsNav.getByRole("button", { name: label, exact: true })).toBeVisible();
     }
     for (const label of [
       "Connections & sync",

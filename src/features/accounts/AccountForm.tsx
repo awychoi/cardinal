@@ -1,5 +1,10 @@
 import { useState, type FormEvent } from "react";
-import type { Account, AccountPayload } from "../../lib/bridge";
+import {
+  isDepositoryAccount,
+  type Account,
+  type AccountPayload,
+  type AccountType,
+} from "../../lib/bridge";
 import { zAccountPayload } from "../../lib/bridge/contract";
 import { Button } from "../../components/Button";
 
@@ -17,12 +22,18 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
   const [issuer, setIssuer] = useState(initial?.issuer ?? "");
   const [displayName, setDisplayName] = useState(initial?.displayName ?? "");
   const [lastFour, setLastFour] = useState(initial?.lastFour ?? "");
-  const [accountType, setAccountType] = useState<AccountPayload["accountType"]>(
-    (initial?.accountType as AccountPayload["accountType"] | undefined) ?? "credit_card",
+  const [accountType, setAccountType] = useState<AccountType>(
+    (initial?.accountType as AccountType | undefined) ?? "credit_card",
   );
   const [creditLimit, setCreditLimit] = useState(
     initial?.creditLimitMinor != null ? (initial.creditLimitMinor / 100).toFixed(2) : "",
   );
+  const [currentBalance, setCurrentBalance] = useState("");
+  const depository = isDepositoryAccount(accountType);
+  const initialDepository = initial ? isDepositoryAccount(initial.accountType) : null;
+  // Provider balances are owned by sync; only a manual account can accept a
+  // new point-in-time balance here.
+  const canEditBalance = !initial || initial.sourceKind === "manual";
   const [includeInOverview, setIncludeInOverview] = useState(initial?.includeInOverview ?? true);
   const [errors, setErrors] = useState<Errors>({});
 
@@ -34,7 +45,9 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
       lastFour: lastFour.trim() === "" ? null : lastFour.trim(),
       accountType,
       currency: "USD",
-      creditLimit: creditLimit.trim() === "" ? null : creditLimit.trim(),
+      creditLimit: depository || creditLimit.trim() === "" ? null : creditLimit.trim(),
+      currentBalance:
+        depository && canEditBalance && currentBalance.trim() !== "" ? currentBalance.trim() : null,
       includeInOverview,
     };
     const parsed = zAccountPayload.safeParse(candidate);
@@ -97,27 +110,68 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
               setAccountType(event.target.value as AccountPayload["accountType"])
             }
           >
-            <option value="credit_card">Credit card</option>
-            <option value="charge_card">Charge card</option>
-            <option value="line_of_credit">Line of credit</option>
-            <option value="other">Other</option>
+            {initialDepository === true ? (
+              <>
+                <option value="checking">Checking</option>
+                <option value="savings">Savings</option>
+                <option value="depository">Bank account (other)</option>
+              </>
+            ) : (
+              <>
+                <option value="credit_card">Credit card</option>
+                <option value="charge_card">Charge card</option>
+                <option value="line_of_credit">Line of credit</option>
+                {initialDepository === null ? (
+                  <>
+                    <option value="checking">Checking</option>
+                    <option value="savings">Savings</option>
+                    <option value="depository">Bank account (other)</option>
+                  </>
+                ) : null}
+                <option value="other">Other</option>
+              </>
+            )}
           </select>
         </label>
         <label>
           <span className="field-label">Currency</span>
           <input value="USD" readOnly aria-readonly="true" />
         </label>
-        <label>
-          <span className="field-label">Credit limit (optional)</span>
-          <input
-            value={creditLimit}
-            onChange={(event) => setCreditLimit(event.target.value)}
-            placeholder="12,500.00"
-            inputMode="decimal"
-            aria-invalid={Boolean(errors.creditLimit)}
-          />
-          {errors.creditLimit ? <span className="field-error">{errors.creditLimit}</span> : null}
-        </label>
+        {depository ? (
+          canEditBalance ? (
+            <label>
+              <span className="field-label">
+                {initial ? "Update current balance (optional)" : "Current balance (optional)"}
+              </span>
+              <input
+                value={currentBalance}
+                onChange={(event) => setCurrentBalance(event.target.value)}
+                placeholder={initial ? "Leave blank to keep the latest" : "5,200.00"}
+                inputMode="decimal"
+                aria-invalid={Boolean(errors.currentBalance)}
+              />
+              {errors.currentBalance ? (
+                <span className="field-error">{errors.currentBalance}</span>
+              ) : null}
+            </label>
+          ) : (
+            <p className="fine-print account-balance-note">
+              Balances for linked bank accounts arrive in Rust during sync and cannot be typed here.
+            </p>
+          )
+        ) : (
+          <label>
+            <span className="field-label">Credit limit (optional)</span>
+            <input
+              value={creditLimit}
+              onChange={(event) => setCreditLimit(event.target.value)}
+              placeholder="12,500.00"
+              inputMode="decimal"
+              aria-invalid={Boolean(errors.creditLimit)}
+            />
+            {errors.creditLimit ? <span className="field-error">{errors.creditLimit}</span> : null}
+          </label>
+        )}
       </div>
       <label className="checkbox-row">
         <input

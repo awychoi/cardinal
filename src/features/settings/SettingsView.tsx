@@ -425,7 +425,9 @@ export function SettingsView({
               <div className="accounts-hub-head">
                 <div>
                   <h2 id="accounts-hub-title">Accounts &amp; data</h2>
-                  <p className="fine-print">Every card is labeled with where its data came from.</p>
+                  <p className="fine-print">
+                    Every account is labeled with where its data came from.
+                  </p>
                 </div>
               </div>
               <div className="settings-tabs" role="tablist" aria-label="Accounts and data">
@@ -571,8 +573,8 @@ export function SettingsView({
               <div className="hr" />
               <h3 className="settings-subhead">Demo mode</h3>
               <p className="fine-print">
-                A separate database with synthetic cards; it cannot reach your real ledger. Opening
-                demo ends the real session, and your passphrase is needed again.
+                A separate database with synthetic accounts; it cannot reach your real ledger.
+                Opening demo ends the real session, and your passphrase is needed again.
               </p>
               <div className="button-row">
                 {demo ? (

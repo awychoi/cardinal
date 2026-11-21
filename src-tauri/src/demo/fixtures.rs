@@ -53,6 +53,7 @@ const CONNECTIONS: &[(&str, &str, &str, &str, &str)] = &[
         "error",
     ),
     ("mock", "demo", "demo-citi", "Citi (demo)", "healthy"),
+    ("mock", "demo", "demo-bank", "Demo Bank (demo)", "healthy"),
 ];
 
 const ACCOUNTS: &[(&str, &str, &str, &str, Option<usize>)] = &[
@@ -360,6 +361,35 @@ pub fn seed(conn: &Connection) -> AppResult<DemoManifest> {
             .map_err(|_| AppError::Database)?;
         }
     }
+
+    // Depository accounts are linked alongside cards. The index continues the
+    // account_id sequence used by the credit fixtures above.
+    conn.execute(
+        "INSERT INTO accounts (id, issuer, display_name, last_four, account_type, currency, \
+            credit_limit_minor, include_in_overview, archived, source_kind, created_at, updated_at) \
+         VALUES (?1, 'Demo Bank', 'Everyday Checking (demo)', '1201', 'checking', 'USD', NULL, 1, 0, 'demo', ?2, ?2)",
+        rusqlite::params![account_id(11), NOW],
+    )
+    .map_err(|_| AppError::Database)?;
+    conn.execute(
+        "INSERT INTO account_sources (id, account_id, connection_id, provider_account_id, \
+            provider_mask, linked_at, unlinked_at) \
+         VALUES (?1, ?2, ?3, 'demo-provider-account-11', '•••• 1201', ?4, NULL)",
+        rusqlite::params![
+            uuid::Uuid::new_v4().to_string(),
+            account_id(11),
+            connection_id(5),
+            NOW
+        ],
+    )
+    .map_err(|_| AppError::Database)?;
+    conn.execute(
+        "INSERT INTO balance_snapshots (id, account_id, current_balance_minor, available_credit_minor, \
+            credit_limit_minor, currency, retrieved_at, provider_as_of, provenance, source_connection_id) \
+         VALUES (?1, ?2, 512300, NULL, NULL, 'USD', ?3, ?3, 'provider', NULL)",
+        rusqlite::params![uuid::Uuid::new_v4().to_string(), account_id(11), NOW],
+    )
+    .map_err(|_| AppError::Database)?;
 
     for (account, balance, days_ago) in BALANCES {
         let retrieved = format!(
@@ -761,6 +791,57 @@ pub fn seed(conn: &Connection) -> AppResult<DemoManifest> {
         Some("2026-10-08"),
     )?;
 
+    // Depository activity: a debit purchase counts as spending, while a card
+    // payment, a transfer, and a paycheck must not.
+    scenario(
+        11,
+        "2026-10-14",
+        8_240,
+        "purchase",
+        "Whole Foods Market",
+        "Groceries",
+        false,
+        false,
+        None,
+        Some("2026-10-14"),
+    )?;
+    scenario(
+        11,
+        "2026-10-15",
+        100_000,
+        "transfer",
+        "Sapphire Reserve Payment",
+        "Transfers",
+        false,
+        false,
+        None,
+        Some("2026-10-15"),
+    )?;
+    scenario(
+        11,
+        "2026-10-15",
+        -350_000,
+        "other",
+        "Payroll Deposit",
+        "Income",
+        false,
+        false,
+        None,
+        Some("2026-10-15"),
+    )?;
+    scenario(
+        11,
+        "2026-10-22",
+        2_100,
+        "purchase",
+        "Pending Coffee",
+        "Dining",
+        true,
+        false,
+        Some("2026-10-22"),
+        None,
+    )?;
+
     // Non-USD account rows, displayed separately.
     for (offset, (date, amount, merchant, category)) in [
         ("2026-08-18", 6_500, "Café de Flore", "Dining"),
@@ -905,14 +986,18 @@ mod tests {
             .unwrap();
         conn.execute_batch(include_str!("../../migrations/0002_domain.sql"))
             .unwrap();
+        conn.execute_batch(include_str!(
+            "../../migrations/0005_depository_accounts.sql"
+        ))
+        .unwrap();
         let manifest = seed(&conn).unwrap();
         assert!(
             manifest.transactions >= 150,
             "only {} transactions",
             manifest.transactions
         );
-        assert_eq!(manifest.accounts, 11);
-        assert_eq!(manifest.connections, 5);
+        assert_eq!(manifest.accounts, 12);
+        assert_eq!(manifest.connections, 6);
         assert!(manifest.pending >= 1);
         assert_eq!(manifest.records.len(), 11);
         let eur: i64 = conn

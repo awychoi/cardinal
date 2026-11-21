@@ -120,5 +120,7 @@ export type {
   PlaidStatus,
   PlaidLinkStatus,
   PlaidVerificationReport,
+  AccountType,
 } from "./contract";
+export { isDepositoryAccount, accountTypeLabel } from "./contract";
 export const _internals = { z } as const;

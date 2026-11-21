@@ -117,7 +117,7 @@ export function VaultGate({
           <>
             <h1 id="vault-title">Your encrypted ledger is locked.</h1>
             <p className="muted">
-              Your cards, balances, and spending by calendar month. The ledger is encrypted and
+              Your accounts, balances, and spending by calendar month. The ledger is encrypted and
               opens only with your passphrase.
             </p>
             <div className="vault-actions">

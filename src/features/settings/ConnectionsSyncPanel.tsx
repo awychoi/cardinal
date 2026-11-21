@@ -273,14 +273,15 @@ export function ConnectionsSyncPanel({
       <h2 id="connections-title">Bank connections</h2>
       <p className="inline-notice" role="note">
         Plaid is optional. Sandbox uses test data; Trial/Production links real banks and counts
-        against your Plaid plan. Only credit accounts are imported.
+        against your Plaid plan. Credit and depository accounts are imported; loans and investments
+        are ignored.
       </p>
       <p className="fine-print">
         Sync runs after unlock and keeps the last reported values when a provider stream is
         unavailable. Scheduled windows are 08:00 and 20:00 local time; a scheduled run is skipped
         while locked.
         {!status?.providerLive
-          ? " Add Plaid credentials below to enable linking; CSV import and manual cards work without a provider."
+          ? " Add Plaid credentials below to enable linking; CSV import and manual accounts work without a provider."
           : " Plaid credentials are configured; linked connections sync into this ledger."}
       </p>
       {error ? (

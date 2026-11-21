@@ -34,6 +34,33 @@ fn account(state: &AppState, name: &str, currency: &str) -> String {
                     currency: currency.into(),
                     credit_limit_minor: Some(500_000),
                     include_in_overview: true,
+                    current_balance_minor: None,
+                },
+            )
+            .map(|account| account.id)
+        })
+        .unwrap()
+}
+
+fn depository_account(
+    state: &AppState,
+    name: &str,
+    account_type: AccountType,
+    current_balance_minor: Option<i64>,
+) -> String {
+    state
+        .with_db(|conn, _header, _settings| {
+            create_manual(
+                conn,
+                &AccountInput {
+                    issuer: "Test Bank".into(),
+                    display_name: name.into(),
+                    last_four: Some("1201".into()),
+                    account_type,
+                    currency: "USD".into(),
+                    credit_limit_minor: None,
+                    include_in_overview: true,
+                    current_balance_minor,
                 },
             )
             .map(|account| account.id)
@@ -417,8 +444,8 @@ fn month_boundary_uses_authorization_date_and_historical_month_is_independent() 
     let view = state
         .with_db(|conn, _h, _s| overview(conn, NaiveDate::from_ymd_opt(2026, 10, 23).unwrap()))
         .unwrap();
-    assert_eq!(view.balances.known_total_minor, 123_456);
-    assert!(view.balances.complete);
+    assert_eq!(view.balances.card_known_total_minor, 123_456);
+    assert!(view.balances.card_complete);
 }
 
 #[test]
@@ -688,10 +715,10 @@ fn current_balances_and_payment_metadata_keep_missing_distinct_from_zero() {
     let view = state
         .with_db(|conn, _h, _s| overview(conn, NaiveDate::from_ymd_opt(2026, 10, 23).unwrap()))
         .unwrap();
-    assert_eq!(view.balances.known_total_minor, 50_000);
-    assert_eq!(view.balances.accounts_with_balance, 1);
-    assert_eq!(view.balances.accounts_missing_balance, 2);
-    assert!(!view.balances.complete);
+    assert_eq!(view.balances.card_known_total_minor, 50_000);
+    assert_eq!(view.balances.card_accounts_with_balance, 1);
+    assert_eq!(view.balances.card_accounts_missing_balance, 2);
+    assert!(!view.balances.card_complete);
 
     let known_card = view
         .accounts
@@ -806,13 +833,13 @@ fn upcoming_window_and_non_usd_balances_are_separated() {
     assert_eq!(view.upcoming.entries[0].display_name, "Due Soon");
     assert_eq!(view.upcoming.known_total_minor, 1_000);
     assert!(view.upcoming.complete);
-    assert_eq!(view.balances.known_total_minor, 30_000);
+    assert_eq!(view.balances.card_known_total_minor, 30_000);
     assert_eq!(
         view.balances.other_currency,
         vec![("EUR".to_string(), 30_000)]
     );
     // USD accounts missing balances: none; EUR is counted separately, so complete is true.
-    assert!(view.balances.complete);
+    assert!(view.balances.card_complete);
 }
 
 #[test]
@@ -1181,4 +1208,91 @@ fn latest_activity_names_the_newest_month_with_visible_rows() {
         Some("2026-10".to_string()),
         "the pointer stays on the newest month, not the selected one"
     );
+}
+
+#[test]
+fn overview_separates_card_debt_from_cash() {
+    let (_tmp, state) = setup();
+    let card = account(&state, "Known Card", "USD");
+    balance(&state, &card, 50_000);
+    let checking = depository_account(&state, "Checking", AccountType::Checking, Some(512_300));
+    let savings = depository_account(&state, "Savings", AccountType::Savings, None);
+
+    // Debit purchases count; transfers and income do not.
+    tx(
+        &state,
+        &checking,
+        "2026-10-14",
+        8_240,
+        "purchase",
+        "Whole Foods",
+        Some("Groceries"),
+        false,
+        false,
+        "USD",
+        None,
+        Some("2026-10-14"),
+    );
+    tx(
+        &state,
+        &checking,
+        "2026-10-15",
+        100_000,
+        "transfer",
+        "Card Payment",
+        Some("Transfers"),
+        false,
+        false,
+        "USD",
+        None,
+        Some("2026-10-15"),
+    );
+    tx(
+        &state,
+        &checking,
+        "2026-10-15",
+        -350_000,
+        "other",
+        "Payroll",
+        Some("Income"),
+        false,
+        false,
+        "USD",
+        None,
+        Some("2026-10-15"),
+    );
+
+    let summary = state
+        .with_db(|conn, _h, _s| month_summary(conn, Month::new(2026, 10).unwrap(), "USD"))
+        .unwrap();
+    assert_eq!(summary.net_spending_minor, 8_240);
+
+    let view = state
+        .with_db(|conn, _h, _s| overview(conn, NaiveDate::from_ymd_opt(2026, 10, 23).unwrap()))
+        .unwrap();
+    assert_eq!(view.balances.card_known_total_minor, 50_000);
+    assert_eq!(view.balances.card_accounts_with_balance, 1);
+    assert_eq!(view.balances.card_accounts_missing_balance, 0);
+    assert!(view.balances.card_complete);
+    assert_eq!(view.balances.cash_known_total_minor, 512_300);
+    assert_eq!(view.balances.cash_accounts_with_balance, 1);
+    assert_eq!(view.balances.cash_accounts_missing_balance, 1);
+    assert!(!view.balances.cash_complete);
+    assert_eq!(view.balances.net_position_minor, 462_300);
+    assert!(!view.balances.net_position_complete);
+
+    let checking_card = view
+        .accounts
+        .iter()
+        .find(|account| account.account_id == checking)
+        .unwrap();
+    assert_eq!(checking_card.account_type, "checking");
+    assert_eq!(checking_card.current_balance_minor, Some(512_300));
+    assert_eq!(checking_card.payment.due_amount_kind, "no_due_date");
+    let savings_card = view
+        .accounts
+        .iter()
+        .find(|account| account.account_id == savings)
+        .unwrap();
+    assert_eq!(savings_card.current_balance_minor, None);
 }

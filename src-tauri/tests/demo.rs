@@ -66,8 +66,8 @@ fn demo_open_seeds_at_least_150_transactions_and_all_scenarios() {
         transactions >= 150,
         "demo has only {transactions} transactions"
     );
-    assert_eq!(accounts, 11);
-    assert_eq!(connections, 5);
+    assert_eq!(accounts, 12);
+    assert_eq!(connections, 6);
     assert!(pending > 0);
     assert!(eur >= 6);
     assert!(linked > 0);
@@ -164,10 +164,9 @@ fn demo_dashboard_is_deterministic_and_month_navigation_is_backend_computed() {
     assert_eq!(first.next_month, "2026-11");
     assert!(first.summary.net_spending_minor != 0);
     assert!(first.summary.reconciliation.exact);
-    assert_eq!(first.overview.accounts.len(), 11);
-    assert_eq!(first.overview.accounts.len(), 11);
-    assert!(first.overview.balances.known_total_minor > 0);
-    assert!(first.overview.balances.accounts_missing_balance >= 1);
+    assert_eq!(first.overview.accounts.len(), 12);
+    assert!(first.overview.balances.card_known_total_minor > 0);
+    assert!(first.overview.balances.card_accounts_missing_balance >= 1);
     assert!(first.account_spend.iter().any(|row| row.currency == "EUR"));
 
     // Pending-only and other months work.
@@ -206,7 +205,7 @@ fn demo_overview_exposes_unknown_zero_stale_and_reconnect_states() {
     assert!(kinds.iter().any(|kind| kind == "not_reported"));
     assert!(kinds.iter().any(|kind| kind == "minimum_due"));
     assert!(kinds.iter().any(|kind| kind == "no_due_date"));
-    assert!(dash.overview.balances.accounts_missing_balance >= 1);
+    assert!(dash.overview.balances.card_accounts_missing_balance >= 1);
     assert!(dash
         .overview
         .accounts

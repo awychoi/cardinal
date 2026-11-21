@@ -35,6 +35,7 @@ fn fifty_thousand_transactions_meet_targets() {
                     currency: "USD".into(),
                     credit_limit_minor: Some(1_000_000),
                     include_in_overview: true,
+                    current_balance_minor: None,
                 },
             )
             .map(|account| account.id)

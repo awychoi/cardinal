@@ -1,4 +1,4 @@
-import type { AccountCard } from "../../lib/bridge";
+import { isDepositoryAccount, type AccountCard } from "../../lib/bridge";
 import { formatMoney } from "../../lib/formatting";
 import "./overview.css";
 
@@ -26,6 +26,7 @@ export function UtilizationPanel({
   const counted = accounts.filter(
     (account) =>
       account.included &&
+      !isDepositoryAccount(account.accountType) &&
       account.currency === "USD" &&
       account.currentBalanceMinor !== null &&
       account.creditLimitMinor !== null &&
@@ -55,6 +56,7 @@ export function UtilizationPanel({
   const missingLimit = accounts.filter(
     (account) =>
       account.included &&
+      !isDepositoryAccount(account.accountType) &&
       account.currency === "USD" &&
       account.currentBalanceMinor !== null &&
       (account.creditLimitMinor === null || account.creditLimitMinor <= 0),

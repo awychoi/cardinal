@@ -423,14 +423,14 @@ export function LedgerView({
             <label className="filter-field">
               <span className="field-label">Card</span>
               <select
-                aria-label="Filter by card"
+                aria-label="Filter by account"
                 value={account}
                 onChange={(event) => {
                   setAccount(event.target.value);
                   setPage(0);
                 }}
               >
-                <option value="">All cards</option>
+                <option value="">All accounts</option>
                 {dashboard.overview.accounts.map((item) => (
                   <option key={item.accountId} value={item.accountId}>
                     {item.displayName}

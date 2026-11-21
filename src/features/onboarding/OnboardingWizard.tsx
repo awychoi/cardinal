@@ -23,7 +23,7 @@ type Step = "connect" | "account" | "timezone" | "finish";
 
 const STEPS: { id: Step; label: string; optional?: boolean }[] = [
   { id: "connect", label: "Bank connection" },
-  { id: "account", label: "Manual card", optional: true },
+  { id: "account", label: "Manual account", optional: true },
   { id: "timezone", label: "Timezone" },
   { id: "finish", label: "Ready" },
 ];
@@ -207,8 +207,9 @@ export function OnboardingWizard({
           <>
             <h1 id="wizard-title">Connect your bank.</h1>
             <p className="muted">
-              Plaid can sync card balances and transactions automatically. It is optional: you can
-              add a card by hand, import a CSV, or set up a bank after the vault opens.
+              Plaid can sync card and bank-account balances and transactions automatically. It is
+              optional: you can add an account by hand, import a CSV, or set up a bank after the
+              vault opens.
             </p>
 
             <div className="wizard-callout">
@@ -288,7 +289,7 @@ export function OnboardingWizard({
             </div>
             <p className="fine-print">
               {environmentStatus?.message ?? "Add credentials to enable linking."} Find the client
-              ID and secret in the Plaid dashboard under Developers → Keys. Only credit card
+              ID and secret in the Plaid dashboard under Developers → Keys. Credit and depository
               accounts are imported. A linked institution is synced from Settings → Accounts → Bank
               connections.
             </p>
@@ -304,7 +305,7 @@ export function OnboardingWizard({
                 {configured ? "Continue" : "Continue without a bank"}
               </Button>
               <Button variant="secondary" onClick={() => go("account")} disabled={busy}>
-                Add a card manually
+                Add an account manually
               </Button>
             </div>
             <p className="fine-print">
@@ -313,10 +314,10 @@ export function OnboardingWizard({
           </>
         ) : step === "account" ? (
           <>
-            <h1 id="wizard-title">Add a card manually.</h1>
+            <h1 id="wizard-title">Add an account manually.</h1>
             <p className="muted">
-              No bank connection is needed. Enter the card now, or skip and add it later in Settings
-              → Accounts.
+              No bank connection is needed. Enter a card or bank account now, or skip and add it
+              later in Settings → Accounts.
             </p>
             <AccountForm submitLabel="Add account" busy={busy} onSubmit={addAccount} />
             <div className="button-row">
@@ -337,7 +338,7 @@ export function OnboardingWizard({
             </p>
             {accountName ? (
               <p className="inline-notice" role="status">
-                Added {accountName}. You can add more cards in Settings → Accounts.
+                Added {accountName}. You can add more accounts in Settings → Accounts.
               </p>
             ) : null}
 
@@ -402,7 +403,7 @@ export function OnboardingWizard({
                 <dd>{bankSummary}</dd>
               </div>
               <div>
-                <dt>Cards</dt>
+                <dt>Accounts</dt>
                 <dd>{accountName ?? "None yet"}</dd>
               </div>
               <div>
@@ -415,7 +416,7 @@ export function OnboardingWizard({
               <strong>Where to finish setting up</strong>
               <ul className="wizard-next-list">
                 <li>
-                  <strong>Cards, payment details, and CSV import</strong> — Settings → Accounts
+                  <strong>Accounts, payment details, and CSV import</strong> — Settings → Accounts
                 </li>
                 <li>
                   <strong>Bank connections and sync</strong> — Settings → Accounts → Bank

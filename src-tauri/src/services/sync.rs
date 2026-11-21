@@ -430,7 +430,8 @@ fn ensure_accounts(
                 None
             };
             let account_type = match account.account_type.as_str() {
-                "credit_card" | "charge_card" | "line_of_credit" => account.account_type.as_str(),
+                "credit_card" | "charge_card" | "line_of_credit" | "checking" | "savings"
+                | "depository" => account.account_type.as_str(),
                 _ => "other",
             };
             conn.execute(

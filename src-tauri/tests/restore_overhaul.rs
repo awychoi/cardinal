@@ -54,6 +54,7 @@ fn add_account(state: &AppState, name: &str) -> String {
                     currency: "USD".into(),
                     credit_limit_minor: Some(500_000),
                     include_in_overview: true,
+                    current_balance_minor: None,
                 },
             )
             .map(|account| account.id)
@@ -1101,7 +1102,7 @@ fn a_schema_three_backup_is_migrated_before_scope_reset() {
                  DROP INDEX payment_snapshots_live_idx;\
                  ALTER TABLE balance_snapshots DROP COLUMN restored;\
                  ALTER TABLE payment_snapshots DROP COLUMN restored;\
-                 DELETE FROM schema_migrations WHERE version = 4;\
+                 DELETE FROM schema_migrations WHERE version >= 4;\
                  UPDATE vault_metadata SET schema_version = 3;",
             )?;
             Ok(())
@@ -1132,7 +1133,7 @@ fn a_schema_three_backup_is_migrated_before_scope_reset() {
             ))
         })
         .unwrap();
-    assert_eq!(schema, 4);
+    assert_eq!(schema, 5);
     assert_eq!(has_restored, 1);
     // The connection reset ran after migration, so the table/columns exist.
     assert_eq!(count(&state, "SELECT count(*) FROM connections"), 0);
@@ -1232,7 +1233,7 @@ fn a_newer_schema_metadata_is_rejected_before_install() {
     add_marker(&state, "before");
     state
         .with_db(|conn, _h, _s| {
-            conn.execute("UPDATE vault_metadata SET schema_version = 5", [])?;
+            conn.execute("UPDATE vault_metadata SET schema_version = 6", [])?;
             Ok(())
         })
         .unwrap();

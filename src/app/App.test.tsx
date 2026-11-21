@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App";
@@ -103,8 +103,8 @@ describe("app shell", () => {
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Unlock vault" }));
     await screen.findByText("Connect your bank.");
-    await user.click(screen.getByRole("button", { name: "Add a card manually" }));
-    expect(await screen.findByText("Add a card manually.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add an account manually" }));
+    expect(await screen.findByText("Add an account manually.")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Issuer"), "Chase");
     await user.type(screen.getByLabelText("Display name"), "Wizard Card");
     await user.type(screen.getByLabelText(/Last four/), "1234");
@@ -115,7 +115,8 @@ describe("app shell", () => {
     await user.click(await screen.findByRole("button", { name: "Finish setup" }));
     expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Settings" }));
-    await user.click(screen.getByRole("button", { name: "Accounts" }));
+    const primaryNav = screen.getByRole("navigation", { name: "Primary" });
+    await user.click(within(primaryNav).getByRole("button", { name: "Accounts" }));
     expect((await screen.findAllByText("Wizard Card", { exact: true })).length).toBeGreaterThan(0);
   });
 

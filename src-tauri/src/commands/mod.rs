@@ -245,6 +245,8 @@ struct AccountPayload {
     account_type: String,
     currency: String,
     credit_limit: Option<String>,
+    #[serde(default)]
+    current_balance: Option<String>,
     include_in_overview: bool,
 }
 
@@ -264,6 +266,14 @@ impl AccountPayload {
                 Some(minor)
             }
         };
+        let current_balance_minor = match self.current_balance {
+            None => None,
+            Some(value) if value.trim().is_empty() => None,
+            Some(value) => Some(
+                parse_currency_amount(&value, &currency)
+                    .map_err(|_| AppError::InvalidInput("current balance"))?,
+            ),
+        };
         Ok(AccountInput {
             issuer: self.issuer,
             display_name: self.display_name,
@@ -271,6 +281,7 @@ impl AccountPayload {
             account_type,
             currency,
             credit_limit_minor,
+            current_balance_minor,
             include_in_overview: self.include_in_overview,
         })
     }
@@ -1083,6 +1094,7 @@ mod tests {
             account_type: "credit_card".into(),
             currency: "usd".into(),
             credit_limit: Some("$12,500.00".into()),
+            current_balance: None,
             include_in_overview: true,
         };
         let input = payload.into_input().unwrap();
@@ -1095,6 +1107,7 @@ mod tests {
             account_type: "credit_card".into(),
             currency: "USD".into(),
             credit_limit: Some("12.5".into()),
+            current_balance: None,
             include_in_overview: true,
         };
         assert!(bad.into_input().is_ok());
@@ -1105,6 +1118,7 @@ mod tests {
             account_type: "credit_card".into(),
             currency: "XYZ".into(),
             credit_limit: None,
+            current_balance: None,
             include_in_overview: true,
         };
         assert!(bad_currency.into_input().is_ok());

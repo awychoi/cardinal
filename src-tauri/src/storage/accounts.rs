@@ -15,6 +15,11 @@ pub enum AccountType {
     CreditCard,
     ChargeCard,
     LineOfCredit,
+    Checking,
+    Savings,
+    /// A depository account whose product Plaid did not describe more
+    /// specifically (for example cash management or an unrecognized subtype).
+    Depository,
     Other,
 }
 
@@ -24,6 +29,9 @@ impl AccountType {
             Self::CreditCard => "credit_card",
             Self::ChargeCard => "charge_card",
             Self::LineOfCredit => "line_of_credit",
+            Self::Checking => "checking",
+            Self::Savings => "savings",
+            Self::Depository => "depository",
             Self::Other => "other",
         }
     }
@@ -33,10 +41,23 @@ impl AccountType {
             "credit_card" => Ok(Self::CreditCard),
             "charge_card" => Ok(Self::ChargeCard),
             "line_of_credit" => Ok(Self::LineOfCredit),
+            "checking" => Ok(Self::Checking),
+            "savings" => Ok(Self::Savings),
+            "depository" => Ok(Self::Depository),
             "other" => Ok(Self::Other),
             _ => Err(AppError::InvalidInput("account type")),
         }
     }
+
+    /// Cash accounts. Everything else, including the legacy `other` value,
+    /// keeps the liability treatment it had before bank accounts existed.
+    pub fn is_depository(self) -> bool {
+        matches!(self, Self::Checking | Self::Savings | Self::Depository)
+    }
+}
+
+pub fn is_depository_type(value: &str) -> bool {
+    matches!(value, "checking" | "savings" | "depository")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +69,7 @@ pub struct AccountInput {
     pub account_type: AccountType,
     pub currency: String,
     pub credit_limit_minor: Option<i64>,
+    pub current_balance_minor: Option<i64>,
     pub include_in_overview: bool,
 }
 
@@ -88,12 +110,60 @@ fn validate_input(input: &AccountInput) -> AppResult<(String, String, Option<Str
         return Err(AppError::InvalidInput("currency"));
     }
     if let Some(limit) = input.credit_limit_minor {
+        if input.account_type.is_depository() {
+            return Err(AppError::InvalidInput("credit limit"));
+        }
         if !(1..=1_000_000_000_000).contains(&limit) {
             return Err(AppError::InvalidInput("credit limit"));
         }
     }
+    if let Some(balance) = input.current_balance_minor {
+        if !input.account_type.is_depository() {
+            return Err(AppError::InvalidInput("current balance"));
+        }
+        if !(-1_000_000_000_000..=1_000_000_000_000).contains(&balance) {
+            return Err(AppError::InvalidInput("current balance"));
+        }
+    }
     let _ = MAX_DESCRIPTION_CHARS;
     Ok((issuer, display_name, last_four, currency))
+}
+
+fn latest_manual_balance(conn: &Connection, account_id: &str) -> AppResult<Option<i64>> {
+    conn.query_row(
+        "SELECT current_balance_minor FROM balance_snapshots \
+         WHERE account_id = ?1 AND provenance = 'manual' \
+         ORDER BY retrieved_at DESC, rowid DESC LIMIT 1",
+        [account_id],
+        |row| row.get(0),
+    )
+    .map(Some)
+    .or_else(|error| match error {
+        rusqlite::Error::QueryReturnedNoRows => Ok(None),
+        other => Err(AppError::from(other)),
+    })
+}
+
+fn record_manual_balance(
+    conn: &Connection,
+    account_id: &str,
+    balance_minor: i64,
+    currency: &str,
+    now: &str,
+) -> AppResult<()> {
+    conn.execute(
+        "INSERT INTO balance_snapshots (id, account_id, current_balance_minor, available_credit_minor, \
+            credit_limit_minor, currency, retrieved_at, provider_as_of, provenance, source_connection_id) \
+         VALUES (?1, ?2, ?3, NULL, NULL, ?4, ?5, NULL, 'manual', NULL)",
+        rusqlite::params![
+            uuid::Uuid::new_v4().to_string(),
+            account_id,
+            balance_minor,
+            currency,
+            now
+        ],
+    )?;
+    Ok(())
 }
 
 fn row_to_account(row: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
@@ -137,12 +207,38 @@ pub fn create_manual(conn: &Connection, input: &AccountInput) -> AppResult<Accou
             now
         ],
     )?;
+    if let Some(balance) = input.current_balance_minor {
+        record_manual_balance(conn, &id, balance, &currency, &now)?;
+    }
     get(conn, &id)
 }
 
 pub fn update_manual(conn: &Connection, id: &str, input: &AccountInput) -> AppResult<Account> {
     uuid::Uuid::parse_str(id).map_err(|_| AppError::InvalidInput("account id"))?;
     let (issuer, display_name, last_four, currency) = validate_input(input)?;
+    let (source_kind, existing_type): (String, String) = conn
+        .query_row(
+            "SELECT source_kind, account_type FROM accounts WHERE id = ?1 AND archived = 0",
+            [id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|error| match error {
+            rusqlite::Error::QueryReturnedNoRows => AppError::NotFound,
+            other => AppError::from(other),
+        })?;
+    // A cash balance and a card balance mean opposite things. Converting an
+    // account across that line would silently flip thousands of dollars in the
+    // overview, so require a new account instead.
+    if is_depository_type(&existing_type) != input.account_type.is_depository() {
+        return Err(AppError::InvalidInput("account type"));
+    }
+    // Provider balances are owned by sync. A manual snapshot on a provider
+    // account would be overwritten at the next sync and would misrepresent
+    // where the number came from.
+    if input.current_balance_minor.is_some() && source_kind != "manual" {
+        return Err(AppError::InvalidInput("current balance"));
+    }
+    let now = now_rfc3339();
     let changed = conn.execute(
         "UPDATE accounts SET issuer = ?2, display_name = ?3, last_four = ?4, account_type = ?5, \
             currency = ?6, credit_limit_minor = ?7, include_in_overview = ?8, updated_at = ?9 \
@@ -156,11 +252,18 @@ pub fn update_manual(conn: &Connection, id: &str, input: &AccountInput) -> AppRe
             currency,
             input.credit_limit_minor,
             i64::from(input.include_in_overview),
-            now_rfc3339()
+            now
         ],
     )?;
     if changed == 0 {
         return Err(AppError::NotFound);
+    }
+    if source_kind == "manual" {
+        if let Some(balance) = input.current_balance_minor {
+            if latest_manual_balance(conn, id)? != Some(balance) {
+                record_manual_balance(conn, id, balance, &currency, &now)?;
+            }
+        }
     }
     get(conn, id)
 }

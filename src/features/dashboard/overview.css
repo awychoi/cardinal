@@ -50,9 +50,17 @@
   align-items: flex-end;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 10px;
   margin-left: auto;
+  min-width: 210px;
   text-align: right;
+}
+
+.hero-balance-block {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .hero-balance-value {
@@ -63,6 +71,10 @@
   letter-spacing: var(--display-tracking);
   line-height: 1.06;
   white-space: nowrap;
+}
+
+.hero-balance-value-small {
+  font-size: clamp(18px, 1.8vw, 24px);
 }
 
 .hero-balance-detail {

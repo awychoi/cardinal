@@ -4,22 +4,23 @@
  * production builds. Financial rules here are test-fixture logic, not the
  * renderer's source of truth.
  */
-import type {
-  Account,
-  AccountCard,
-  AccountSpend,
-  Breakdown,
-  CurrencySubtotal,
-  Dashboard,
-  LatestActivity,
-  LedgerPage,
-  LedgerQuery,
-  LedgerRow,
-  MonthSummary,
-  Overview,
-  PaymentInfo,
-  SpendHistory,
-  UpcomingPayment,
+import {
+  isDepositoryAccount,
+  type Account,
+  type AccountCard,
+  type AccountSpend,
+  type Breakdown,
+  type CurrencySubtotal,
+  type Dashboard,
+  type LatestActivity,
+  type LedgerPage,
+  type LedgerQuery,
+  type LedgerRow,
+  type MonthSummary,
+  type Overview,
+  type PaymentInfo,
+  type SpendHistory,
+  type UpcomingPayment,
 } from "../lib/bridge/contract";
 import { BridgeError } from "../lib/bridge/errors";
 
@@ -50,6 +51,14 @@ const ACCOUNT_SEED: Account[] = [
   account("aaaaaaaa-0000-4000-8000-000000000006", "Citi", "Double Cash (demo)", "8801"),
   account("aaaaaaaa-0000-4000-8000-000000000007", "Demo Bank", "Euro Travel (demo)", "9901", "EUR"),
   account("aaaaaaaa-0000-4000-8000-000000000008", "Synchrony", "PayPal Credit (demo)", "5502"),
+  account(
+    "aaaaaaaa-0000-4000-8000-000000000009",
+    "Demo Bank",
+    "Everyday Checking (demo)",
+    "1201",
+    "USD",
+    "checking",
+  ),
 ];
 
 function account(
@@ -58,15 +67,16 @@ function account(
   displayName: string,
   lastFour: string,
   currency = "USD",
+  accountType = "credit_card",
 ): Account {
   return {
     id,
     issuer,
     displayName,
     lastFour,
-    accountType: "credit_card",
+    accountType,
     currency,
-    creditLimitMinor: 1_000_000,
+    creditLimitMinor: accountType === "checking" || accountType === "savings" ? null : 1_000_000,
     includeInOverview: true,
     archived: false,
     sourceKind: "demo",
@@ -98,6 +108,7 @@ export function resetMockData(): void {
   manualPayments.clear();
   importBatches.length = 0;
   importJob = null;
+  resetBalances();
 }
 
 export function mockAccounts(): Account[] {
@@ -111,6 +122,7 @@ export function createMockAccount(input: {
   accountType: Account["accountType"];
   currency: string;
   creditLimit: string | null;
+  currentBalance: string | null;
   includeInOverview: boolean;
 }): Account {
   const now = "2026-10-23T12:00:00Z";
@@ -131,6 +143,12 @@ export function createMockAccount(input: {
     updatedAt: now,
   };
   accounts = [...accounts, created];
+  if (input.currentBalance) {
+    balances[created.id] = {
+      minor: Math.round(Number(input.currentBalance.replace(/[$,]/g, "")) * 100),
+      retrieved: now,
+    };
+  }
   return structuredClone(created);
 }
 
@@ -154,6 +172,12 @@ export function updateMockAccount(
     updatedAt: "2026-10-23T12:00:00Z",
   };
   accounts = accounts.map((item) => (item.id === id ? updated : item));
+  if (input.currentBalance && existing.sourceKind === "manual") {
+    balances[id] = {
+      minor: Math.round(Number(input.currentBalance.replace(/[$,]/g, "")) * 100),
+      retrieved: "2026-10-23T12:00:00Z",
+    };
+  }
   return structuredClone(updated);
 }
 
@@ -364,6 +388,53 @@ function seedTransactions(): MockTx[] {
       excluded: true,
     }),
   );
+  // Depository activity: a debit purchase counts as spending; a card payment,
+  // a transfer, and a paycheck do not.
+  rows.push(
+    makeTx(
+      "mock-bank-purchase",
+      accountId(9),
+      "2026-10-14",
+      8_240,
+      "purchase",
+      "Whole Foods Market",
+      "Groceries",
+    ),
+  );
+  rows.push(
+    makeTx(
+      "mock-bank-transfer",
+      accountId(9),
+      "2026-10-15",
+      100_000,
+      "transfer",
+      "Sapphire Reserve Payment",
+      "Transfers",
+    ),
+  );
+  rows.push(
+    makeTx(
+      "mock-bank-income",
+      accountId(9),
+      "2026-10-15",
+      -350_000,
+      "other",
+      "Payroll Deposit",
+      "Income",
+    ),
+  );
+  rows.push(
+    makeTx(
+      "mock-bank-pending",
+      accountId(9),
+      "2026-10-22",
+      2_100,
+      "purchase",
+      "Pending Coffee",
+      "Dining",
+      { pending: true, postedDate: null, authorizedDate: "2026-10-22" },
+    ),
+  );
   // Non-USD rows.
   for (let i = 0; i < 4; i += 1) {
     rows.push(
@@ -476,7 +547,7 @@ function summaryFor(month: string): MonthSummary {
   };
 }
 
-const BALANCES: Record<string, { minor: number; retrieved: string; stale?: boolean }> = {
+let balances: Record<string, { minor: number; retrieved: string; stale?: boolean }> = {
   [accountId(1)]: { minor: 432_100, retrieved: "2026-10-23T08:00:00Z" },
   [accountId(2)]: { minor: 128_450, retrieved: "2026-10-23T08:00:00Z" },
   [accountId(3)]: { minor: 54_300, retrieved: "2026-10-23T08:00:00Z" },
@@ -484,8 +555,22 @@ const BALANCES: Record<string, { minor: number; retrieved: string; stale?: boole
   [accountId(5)]: { minor: 210_000, retrieved: "2026-10-13T08:00:00Z", stale: true },
   [accountId(6)]: { minor: 33_200, retrieved: "2026-10-23T08:00:00Z" },
   [accountId(7)]: { minor: 4_500, retrieved: "2026-10-23T08:00:00Z" },
+  [accountId(9)]: { minor: 512_300, retrieved: "2026-10-23T08:00:00Z" },
   // PayPal has no balance snapshot (unknown, not zero).
 };
+
+function resetBalances(): void {
+  balances = {
+    [accountId(1)]: { minor: 432_100, retrieved: "2026-10-23T08:00:00Z" },
+    [accountId(2)]: { minor: 128_450, retrieved: "2026-10-23T08:00:00Z" },
+    [accountId(3)]: { minor: 54_300, retrieved: "2026-10-23T08:00:00Z" },
+    [accountId(4)]: { minor: 91_750, retrieved: "2026-10-23T08:00:00Z" },
+    [accountId(5)]: { minor: 210_000, retrieved: "2026-10-13T08:00:00Z", stale: true },
+    [accountId(6)]: { minor: 33_200, retrieved: "2026-10-23T08:00:00Z" },
+    [accountId(7)]: { minor: 4_500, retrieved: "2026-10-23T08:00:00Z" },
+    [accountId(9)]: { minor: 512_300, retrieved: "2026-10-23T08:00:00Z" },
+  };
+}
 
 const PAYMENTS: Record<
   string,
@@ -520,6 +605,7 @@ const CONNECTION: Record<string, { status: string; issuer: string }> = {
   [accountId(5)]: { status: "error", issuer: "American Express (demo)" },
   [accountId(6)]: { status: "healthy", issuer: "Citi (demo)" },
   [accountId(8)]: { status: "healthy", issuer: "Synchrony (demo)" },
+  [accountId(9)]: { status: "healthy", issuer: "Demo Bank (demo)" },
 };
 
 /** Roll a past due date forward to the same day on or after TODAY (mirrors Rust). */
@@ -584,20 +670,22 @@ function accountCards(): AccountCard[] {
   return accounts
     .filter((item) => !item.archived)
     .map((item) => {
-      const balance = BALANCES[item.id];
+      const balance = balances[item.id];
       const connection = CONNECTION[item.id];
+      const depository = isDepositoryAccount(item.accountType);
       return {
         accountId: item.id,
         issuer: item.issuer,
         displayName: item.displayName,
         lastFour: item.lastFour,
+        accountType: item.accountType,
         currency: item.currency,
         included: item.includeInOverview,
         sourceKind: item.sourceKind,
         connectionStatus: connection?.status ?? null,
         currentBalanceMinor: balance?.minor ?? null,
-        availableCreditMinor: balance ? 500_000 : null,
-        creditLimitMinor: balance ? 1_000_000 : null,
+        availableCreditMinor: depository || !balance ? null : 500_000,
+        creditLimitMinor: depository || !balance ? null : 1_000_000,
         balanceRetrievedAt: balance?.retrieved ?? null,
         balanceProvenance: balance ? "provider" : null,
         balanceAgeDays: balance?.stale ? 10 : balance ? 0 : null,
@@ -610,14 +698,22 @@ function accountCards(): AccountCard[] {
 function overviewFor(): Overview {
   const cards = accountCards();
   const includedUsd = cards.filter((card) => card.included && card.currency === "USD");
-  const withBalance = includedUsd.filter((card) => card.currentBalanceMinor !== null);
-  const knownTotalMinor = withBalance.reduce(
+  const cardAccounts = includedUsd.filter((card) => !isDepositoryAccount(card.accountType));
+  const cashAccounts = includedUsd.filter((card) => isDepositoryAccount(card.accountType));
+  const cardsWithBalance = cardAccounts.filter((card) => card.currentBalanceMinor !== null);
+  const cashWithBalance = cashAccounts.filter((card) => card.currentBalanceMinor !== null);
+  const cardKnownTotalMinor = cardsWithBalance.reduce(
+    (sum, card) => sum + (card.currentBalanceMinor ?? 0),
+    0,
+  );
+  const cashKnownTotalMinor = cashWithBalance.reduce(
     (sum, card) => sum + (card.currentBalanceMinor ?? 0),
     0,
   );
   const entries: UpcomingPayment[] = [];
   for (const card of cards) {
-    if (!card.included || !card.payment.nextDueDate) continue;
+    if (!card.included || isDepositoryAccount(card.accountType) || !card.payment.nextDueDate)
+      continue;
     if (card.payment.nextDueDate >= TODAY && card.payment.nextDueDate < "2026-11-06") {
       entries.push({
         accountId: card.accountId,
@@ -631,16 +727,28 @@ function overviewFor(): Overview {
       });
     }
   }
+  const cardComplete = cardAccounts.length > 0 && cardAccounts.length === cardsWithBalance.length;
+  const cashComplete = cashAccounts.length > 0 && cashAccounts.length === cashWithBalance.length;
   return {
     accounts: cards,
     balances: {
-      knownTotalMinor,
-      accountsWithBalance: withBalance.length,
-      accountsMissingBalance: includedUsd.length - withBalance.length,
-      complete: includedUsd.length > 0 && includedUsd.length === withBalance.length,
+      cardKnownTotalMinor,
+      cardAccountsWithBalance: cardsWithBalance.length,
+      cardAccountsMissingBalance: cardAccounts.length - cardsWithBalance.length,
+      cardComplete,
+      cashKnownTotalMinor,
+      cashAccountsWithBalance: cashWithBalance.length,
+      cashAccountsMissingBalance: cashAccounts.length - cashWithBalance.length,
+      cashComplete,
+      netPositionMinor: cashKnownTotalMinor - cardKnownTotalMinor,
+      netPositionComplete: cardComplete && cashComplete,
       otherCurrency: cards
         .filter(
-          (card) => card.included && card.currency !== "USD" && card.currentBalanceMinor !== null,
+          (card) =>
+            card.included &&
+            !isDepositoryAccount(card.accountType) &&
+            card.currency !== "USD" &&
+            card.currentBalanceMinor !== null,
         )
         .map((card) => [card.currency, card.currentBalanceMinor ?? 0] as [string, number]),
     },

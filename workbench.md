@@ -18,6 +18,6 @@ link:
 ---
 ## What it is
 
-Cardinal consolidates a person's credit-card balances and transactions into one Plaid-synced dashboard. Or keep it offline via CSV import or manual entry.
+Cardinal consolidates a person's credit-card and bank-account balances and transactions into one Plaid-synced dashboard, with cash and card debt kept separate. Or keep it offline via CSV import or manual entry.
 
 The vault is SQLCipher-encrypted; an Argon2id-derived key wraps the data key behind a passphrase that is never stored — irrecoverable, by design. Plaid secures the bank connections. Secrets live in the macOS Keychain.

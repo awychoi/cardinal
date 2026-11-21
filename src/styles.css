@@ -1765,6 +1765,9 @@ h3 {
 .cards-grid-faces {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
+.bank-accounts-grid {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
 .cardface {
   position: relative;
   display: grid;
@@ -1930,6 +1933,24 @@ h3 {
 .card-details-title {
   margin: 2px 0 0;
   font-size: calc(var(--type-scale) * 14px);
+}
+.account-group {
+  display: grid;
+  gap: 12px;
+}
+.account-group + .account-group {
+  margin-top: calc(var(--gap) * 0.4);
+}
+.account-group-title {
+  font-family: var(--font-display);
+  font-size: calc(var(--type-scale) * 18px);
+  letter-spacing: var(--display-tracking);
+  margin: 0;
+}
+.account-balance-note {
+  align-self: end;
+  margin: 0 0 6px;
+  max-width: 34ch;
 }
 .detail-table {
   width: 100%;

@@ -2,7 +2,7 @@
 # file is pushed to the default branch. It syncs the repository description,
 # homepage and topics; the social preview image is still a manual upload.
 repository:
-  description: "An open-source, local-first, encrypted wealth manager for macOS. Bank accounts and credit cards in one bank-first balance sheet. Tauri 2, Rust, React, TypeScript, SQLCipher."
+  description: "An local encrypted wealth manager. Bank accounts and credit cards in one bank-first balance sheet, cash and card expenses by calendar month."
   homepage: "https://wychoi.com/#workbench-cardinal"
   # The Settings app expects a comma-separated string, not a YAML list.
-  topics: "local-first, macos, tauri, tauri-v2, rust, react, typescript, sqlcipher, personal-finance, wealth-management, privacy, encryption, credit-cards, plaid"
+  topics: "local-first, tauri-v2, rust, react, typescript, sqlcipher, personal-finance, wealth-management, privacy, encryption"

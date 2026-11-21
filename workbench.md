@@ -18,11 +18,8 @@ link:
 ---
 ## What it is
 
-Cardinal is an open-source macOS app built with Tauri 2, Rust, and React. It brings bank accounts
-and credit cards into one quiet, bank-first balance sheet, with cash and card debt kept separate.
-Calendar-month spending stays distinct from statement cycles; amounts can sync through Plaid, import
-from CSV, or be entered manually. There is no account, cloud, or telemetry.
+Cardinal brings bank accounts and credit cards into one bank-first balance sheet, with cash and card spending.
+Calendar-month spending stays distinct from statement cycles; amounts can sync through Plaid, import from CSV, or be entered manually. No more accounts, cloud, or telemetry (besides the optional Plaid).
 
 The vault is SQLCipher-encrypted; an Argon2id-derived key wraps the data key behind a passphrase that
-is never stored — irrecoverable, by design. Plaid provides the bank connections; credentials live in
-the macOS Keychain, and the renderer never receives them.
+is never stored, hence irrecoverable, by design. Optional Plaid credentials live in the macOS Keychain, and the renderer never receives them.

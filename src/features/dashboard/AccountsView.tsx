@@ -2,13 +2,22 @@ import type { CSSProperties } from "react";
 import {
   accountTypeLabel,
   isDepositoryAccount,
-  type Dashboard,
   type AccountCard,
+  type Dashboard,
 } from "../../lib/bridge";
-import { connectionLabel, formatDateOnly, formatMoney, monthLabel } from "../../lib/formatting";
+import {
+  connectionLabel,
+  formatDateOnly,
+  formatMoney,
+  formatSignedMoney,
+  monthLabel,
+} from "../../lib/formatting";
 import { issuerVariables } from "../../theme/tokens";
 import type { Theme } from "../../theme/schema";
+import { AccountKindIcon } from "../../components/AccountKindIcon";
+import { Button } from "../../components/Button";
 import { dueText } from "./cardsPresentation";
+import "./accounts.css";
 
 type CardStatus = "ok" | "warn" | "fail" | "info";
 
@@ -19,372 +28,424 @@ function statusFor(account: AccountCard): CardStatus {
   return "warn";
 }
 
+function modelUsdCardCount(accounts: AccountCard[]): number {
+  return accounts.filter((account) => account.currency === "USD").length;
+}
+
+function statusClass(status: CardStatus): string {
+  return `status-pill status-${status === "ok" ? "ok" : status === "fail" ? "fail" : status === "info" ? "info" : "warn"}`;
+}
+
+function balanceText(account: AccountCard): string {
+  return account.currentBalanceMinor === null
+    ? "Unknown"
+    : formatMoney(account.currentBalanceMinor, account.currency);
+}
+
+function balanceAsOf(account: AccountCard): string {
+  if (account.currentBalanceMinor === null) return "No balance snapshot — unknown, not $0.00";
+  return `as of ${
+    account.balanceRetrievedAt ? formatDateOnly(account.balanceRetrievedAt.slice(0, 10)) : "unknown"
+  }${account.balanceStale ? " · stale" : ""}`;
+}
+
+/** A single compact row for the full details disclosure. */
+function DetailRows({
+  accounts,
+  kind,
+  spendFor,
+}: {
+  accounts: AccountCard[];
+  kind: "cash" | "card";
+  spendFor: (account: AccountCard) => number | null;
+}) {
+  return (
+    <table className="detail-table">
+      <thead>
+        <tr>
+          <th scope="col">{kind === "cash" ? "Account" : "Card"}</th>
+          <th scope="col">Month spend</th>
+          <th scope="col">Current balance</th>
+          <th scope="col">As of</th>
+          <th scope="col">Source</th>
+          <th scope="col">{kind === "cash" ? "Type" : "Next due"}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {accounts.map((account) => (
+          <tr key={account.accountId}>
+            <th scope="row" className="detail-card">
+              {account.displayName}
+              <span className="fine-print"> · •••• {account.lastFour ?? "----"}</span>
+            </th>
+            <td>
+              {spendFor(account) === null
+                ? "—"
+                : formatMoney(spendFor(account) ?? 0, account.currency)}
+            </td>
+            <td>{balanceText(account)}</td>
+            <td>
+              {account.balanceRetrievedAt
+                ? formatDateOnly(account.balanceRetrievedAt.slice(0, 10))
+                : "Unknown"}
+              {account.balanceStale ? " · stale" : ""}
+            </td>
+            <td>{connectionLabel(account.connectionStatus, account.sourceKind)}</td>
+            <td>{kind === "cash" ? accountTypeLabel(account.accountType) : dueText(account)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export function AccountsView({
   dashboard,
   theme,
   onFilterAccount,
+  onAddAccount,
 }: {
   dashboard: Dashboard;
   theme: Theme;
   onFilterAccount: (accountId: string) => void;
+  onAddAccount: () => void;
 }) {
   const accounts = dashboard.overview.accounts;
-  const creditAccounts = accounts.filter((account) => !isDepositoryAccount(account.accountType));
-  const bankAccounts = accounts.filter((account) => isDepositoryAccount(account.accountType));
-  const spendFor = (accountId: string, currency: string) =>
-    dashboard.accountSpend.find((row) => row.accountId === accountId && row.currency === currency);
-
-  const balanceText = (account: AccountCard): string =>
-    account.currentBalanceMinor === null
-      ? "Balance unknown"
-      : formatMoney(account.currentBalanceMinor, account.currency);
-
-  const balanceAsOf = (account: AccountCard): string =>
-    account.currentBalanceMinor === null
-      ? "No balance snapshot — not shown as $0.00"
-      : `as of ${
-          account.balanceRetrievedAt
-            ? formatDateOnly(account.balanceRetrievedAt.slice(0, 10))
-            : "unknown"
-        }${account.balanceStale ? " · stale" : ""}`;
-
-  const statementText = (account: AccountCard): string => {
-    const payment = account.payment;
-    if (payment.statementBalanceMinor === null) return "Not reported";
-    return `${formatMoney(payment.statementBalanceMinor, account.currency)}${
-      payment.statementIssueDate ? ` · ${formatDateOnly(payment.statementIssueDate)}` : ""
-    }`;
-  };
-
+  const included = accounts.filter((account) => account.included);
+  const cashAccounts = accounts.filter((account) => isDepositoryAccount(account.accountType));
+  const cardAccounts = accounts.filter((account) => !isDepositoryAccount(account.accountType));
+  const includedCash = included.filter((account) => isDepositoryAccount(account.accountType));
+  const includedCards = included.filter((account) => !isDepositoryAccount(account.accountType));
+  const { balances } = dashboard.overview;
   const faces = theme.options.cardArt === "faces";
+  const spendByAccount = new Map<string, number>(
+    dashboard.accountSpend.map(
+      (row) => [`${row.accountId}|${row.currency}`, row.netMinor] as const,
+    ),
+  );
+  const spendFor = (account: AccountCard): number | null =>
+    spendByAccount.get(`${account.accountId}|${account.currency}`) ?? null;
 
   if (accounts.length === 0) {
     return (
-      <section className="dashboard" aria-labelledby="accounts-title">
+      <section className="dashboard accounts-view" aria-labelledby="accounts-title">
         <header className="page-heading">
           <div>
+            <p className="eyebrow">Balance sheet</p>
             <h1 id="accounts-title">Accounts</h1>
+            <p className="muted">Cash and card debt, side by side.</p>
           </div>
         </header>
-        <p className="muted">No accounts yet.</p>
+        <div className="accounts-empty">
+          <h2>No accounts yet.</h2>
+          <p className="muted">
+            Add a bank account to track cash, or a card to track what you borrow.
+          </p>
+          <Button variant="primary" onClick={onAddAccount}>
+            Add account
+          </Button>
+        </div>
       </section>
     );
   }
 
+  const net = balances.netPositionMinor;
+  const known = balances.cashKnownTotalMinor + balances.cardKnownTotalMinor;
+  const cashShare = known > 0 ? Math.round((balances.cashKnownTotalMinor / known) * 100) : 50;
+
   return (
-    <section className="dashboard" aria-labelledby="accounts-title">
-      <header className="page-heading">
+    <section className="dashboard accounts-view" aria-labelledby="accounts-title">
+      <header className="page-heading accounts-heading">
         <div>
+          <p className="eyebrow">Balance sheet</p>
           <h1 id="accounts-title">Accounts</h1>
           <p className="muted">
-            {monthLabel(dashboard.month)} · monthly spending plus card balances, cash, and reported
-            payment metadata
+            Everything you own and owe. {monthLabel(dashboard.month)} spending is shown next to each
+            account.
           </p>
+        </div>
+        <div className="heading-actions">
+          <Button variant="primary" onClick={onAddAccount}>
+            Add account
+          </Button>
         </div>
       </header>
 
-      {creditAccounts.length > 0 ? (
-        <section className="account-group" aria-labelledby="credit-accounts-title">
-          <h2 id="credit-accounts-title" className="account-group-title">
-            Credit cards
-          </h2>
-          {faces ? (
-            <div className="cards-grid cards-grid-faces">
-              {creditAccounts.map((account) => {
-                const payment = account.payment;
-                const missing = account.currentBalanceMinor === null;
-                const status = statusFor(account);
-                return (
-                  <button
-                    type="button"
-                    key={account.accountId}
-                    className={[
-                      "cardface",
-                      account.balanceStale ? "cardface-stale" : "",
-                      missing ? "cardface-missing" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    style={issuerVariables(theme, account.issuer) as CSSProperties}
-                    onClick={() => onFilterAccount(account.accountId)}
-                    aria-label={`Filter transactions to ${account.displayName}`}
-                  >
-                    <span className="cf-top">
-                      <span className="cf-issuer">{account.issuer}</span>
-                      <span className="cf-last">•••• {account.lastFour ?? "----"}</span>
-                    </span>
-                    <span className="cf-mid">
-                      <span className="cf-label">Current balance</span>
-                      <span className={`cf-bal${missing ? " cf-bal-unknown" : ""}`}>
-                        {missing ? "Unknown" : balanceText(account)}
-                      </span>
-                      <span className="cf-note">
-                        {missing
-                          ? "No snapshot — never shown as $0.00"
-                          : `as of ${
-                              account.balanceRetrievedAt
-                                ? formatDateOnly(account.balanceRetrievedAt.slice(0, 10))
-                                : "unknown"
-                            }${account.balanceStale ? " · stale" : ""}`}
-                      </span>
-                    </span>
-                    <span className="cf-foot">
-                      <span className="cf-next">
-                        {payment.dueAmountKind === "no_due_date" ? "" : "Next "}
-                        {dueText(account, true)}
-                      </span>
-                      <span className={`cf-chip cf-chip-${status}`}>
-                        <span className="cf-dot" aria-hidden="true" />
-                        {connectionLabel(account.connectionStatus, account.sourceKind)}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="cards-grid">
-              {creditAccounts.map((account) => {
-                const spend = spendFor(account.accountId, account.currency);
-                const payment = account.payment;
-                const dueLabel = dueText(account, true);
-                return (
-                  <button
-                    type="button"
-                    key={account.accountId}
-                    className="card-tile"
-                    onClick={() => onFilterAccount(account.accountId)}
-                    aria-label={`Filter transactions to ${account.displayName}`}
-                  >
-                    <span className="card-head">
-                      <span>
-                        <span className="card-issuer">{account.issuer}</span>
-                        <span className="card-name">{account.displayName}</span>
-                      </span>
-                      <span className="card-mask">•••• {account.lastFour ?? "----"}</span>
-                    </span>
+      <section className="sheet-summary" aria-label="Balance sheet summary">
+        <div className="sheet-side sheet-side-cash">
+          <span className="sheet-side-label">
+            <AccountKindIcon kind="cash" /> Cash you own
+          </span>
+          <strong className="sheet-side-value">{formatMoney(balances.cashKnownTotalMinor)}</strong>
+          <span className="sheet-side-note">
+            {includedCash.length} account{includedCash.length === 1 ? "" : "s"}
+            {balances.cashComplete ? " · all reported" : " · some missing"}
+          </span>
+        </div>
 
-                    <span className="card-balance">{balanceText(account)}</span>
-                    <span className="fine-print">{balanceAsOf(account)}</span>
-
-                    <span className="card-row">
-                      <span className="card-label">Month spend</span>
-                      <span>{spend ? formatMoney(spend.netMinor, account.currency) : "—"}</span>
-                    </span>
-                    <span className="card-row">
-                      <span className="card-label">Payment</span>
-                      <span>{dueLabel}</span>
-                    </span>
-                    {payment.dueSource ? (
-                      <span className="fine-print">
-                        Due source: {payment.dueSource}
-                        {payment.dueSource === "manual" ? " (dated manual entry)" : ""}
-                        {payment.manualExpired ? " · manual entry expired" : ""}
-                      </span>
-                    ) : null}
-                    <span className="card-row">
-                      <span className="card-label">Last statement</span>
-                      <span>{statementText(account)}</span>
-                    </span>
-                    <span className="fine-print">
-                      A statement balance is not the remaining amount due.
-                    </span>
-                    {payment.nextClosingDate ? (
-                      <span className="card-row">
-                        <span className="card-label">Next closing</span>
-                        <span>{formatDateOnly(payment.nextClosingDate)}</span>
-                      </span>
-                    ) : null}
-                    {account.connectionStatus === "error" ||
-                    account.connectionStatus === "reconnect_required" ? (
-                      <span className="fine-print">
-                        Statement details may be unavailable until this connection is repaired;
-                        missing values are never shown as $0.00.
-                      </span>
-                    ) : null}
-                    <span className="card-foot">
-                      <span
-                        className={`status-pill ${
-                          account.sourceKind === "manual"
-                            ? "status-info"
-                            : account.connectionStatus === "healthy"
-                              ? "status-ok"
-                              : account.connectionStatus === "error"
-                                ? "status-fail"
-                                : "status-warn"
-                        }`}
-                      >
-                        {connectionLabel(account.connectionStatus, account.sourceKind)}
-                      </span>
-                      <span className="fine-print">Click to filter the ledger</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="card-details">
-            <h3 className="card-details-title">Card details</h3>
-            <div className="table-wrap">
-              <table className="detail-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Card</th>
-                    <th scope="col">Month spend</th>
-                    <th scope="col">Next payment</th>
-                    <th scope="col">Statement</th>
-                    <th scope="col">Due source</th>
-                    <th scope="col">Balance as of</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {creditAccounts.map((account) => {
-                    const spend = spendFor(account.accountId, account.currency);
-                    return (
-                      <tr key={account.accountId}>
-                        <th scope="row" className="detail-card">
-                          {account.displayName}
-                          <span className="fine-print"> ···· {account.lastFour ?? "----"}</span>
-                        </th>
-                        <td>{spend ? formatMoney(spend.netMinor, account.currency) : "—"}</td>
-                        <td>{dueText(account)}</td>
-                        <td>{statementText(account)}</td>
-                        <td>
-                          {account.payment.dueSource
-                            ? `Due source: ${account.payment.dueSource}${
-                                account.payment.manualExpired ? " · expired" : ""
-                              }`
-                            : "—"}
-                        </td>
-                        <td>
-                          {account.balanceRetrievedAt
-                            ? formatDateOnly(account.balanceRetrievedAt.slice(0, 10))
-                            : "Unknown"}
-                          {account.balanceStale ? " · stale" : ""}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="fine-print">
-              A statement balance is not the remaining amount due. Missing values are never shown as
-              $0.00. A due date that has already passed is rolled forward a month and marked{" "}
-              <strong>Est.</strong> — its reported minimum belongs to the earlier cycle, so it is
-              not carried over.
-            </p>
+        <div className="sheet-net">
+          <span className="eyebrow">Net position</span>
+          <strong className={`sheet-net-value${net < 0 ? " is-negative" : ""}`}>
+            {formatSignedMoney(net)}
+          </strong>
+          <div
+            className="sheet-net-bar"
+            role="img"
+            aria-label={`Cash ${formatMoney(
+              balances.cashKnownTotalMinor,
+            )} and card balances ${formatMoney(balances.cardKnownTotalMinor)}`}
+          >
+            <span style={{ width: `${cashShare}%` }} />
+            <span style={{ width: `${100 - cashShare}%` }} />
           </div>
-        </section>
-      ) : null}
+          <span className="sheet-side-note">
+            {balances.netPositionComplete
+              ? "Cash minus card balances"
+              : "Known balances only — some are missing"}
+          </span>
+        </div>
 
-      {bankAccounts.length > 0 ? (
-        <section className="account-group" aria-labelledby="bank-accounts-title">
-          <h2 id="bank-accounts-title" className="account-group-title">
-            Bank accounts
-          </h2>
-          <div className="cards-grid bank-accounts-grid">
-            {bankAccounts.map((account) => {
-              const spend = spendFor(account.accountId, account.currency);
+        <div className="sheet-side sheet-side-debt">
+          <span className="sheet-side-label">
+            <AccountKindIcon kind="card" /> Card balances
+          </span>
+          <strong className="sheet-side-value">{formatMoney(balances.cardKnownTotalMinor)}</strong>
+          <span className="sheet-side-note">
+            {includedCards.length} card{includedCards.length === 1 ? "" : "s"} tracked ·{" "}
+            {balances.cardAccountsWithBalance}/{modelUsdCardCount(includedCards)} USD reported
+          </span>
+        </div>
+      </section>
+
+      <section className="account-group" aria-labelledby="bank-accounts-title">
+        <header className="account-group-head">
+          <div>
+            <p className="eyebrow">The cash side</p>
+            <h2 id="bank-accounts-title" className="account-group-title">
+              Bank accounts
+            </h2>
+          </div>
+          <strong className="account-group-total">
+            {formatMoney(balances.cashKnownTotalMinor)}
+          </strong>
+        </header>
+
+        {cashAccounts.length > 0 ? (
+          <div className="bank-grid">
+            {cashAccounts.map((account) => {
+              const spend = spendFor(account);
               return (
                 <button
                   type="button"
                   key={account.accountId}
-                  className="card-tile"
+                  className="bank-card"
                   onClick={() => onFilterAccount(account.accountId)}
                   aria-label={`Filter transactions to ${account.displayName}`}
                 >
-                  <span className="card-head">
-                    <span>
-                      <span className="card-issuer">{account.issuer}</span>
-                      <span className="card-name">{account.displayName}</span>
+                  <span className="bank-card-top">
+                    <span className="bank-kind">
+                      <AccountKindIcon kind="cash" />
+                      {accountTypeLabel(account.accountType)}
                     </span>
-                    <span className="card-mask">•••• {account.lastFour ?? "----"}</span>
+                    <span className={statusClass(statusFor(account))}>
+                      <span className="status-dot" aria-hidden="true" />
+                      {connectionLabel(account.connectionStatus, account.sourceKind)}
+                    </span>
                   </span>
-
-                  <span className="card-balance">{balanceText(account)}</span>
-                  <span className="fine-print">{balanceAsOf(account)}</span>
-
-                  <span className="card-row">
-                    <span className="card-label">Month spend</span>
-                    <span>{spend ? formatMoney(spend.netMinor, account.currency) : "—"}</span>
+                  <span className="bank-card-name">{account.displayName}</span>
+                  <span className="bank-card-mask">
+                    {account.issuer}
+                    {account.lastFour ? ` · •••• ${account.lastFour}` : ""}
                   </span>
-                  <span className="card-row">
-                    <span className="card-label">Account type</span>
-                    <span>{accountTypeLabel(account.accountType)}</span>
+                  <span className="bank-card-balance">{balanceText(account)}</span>
+                  <span className="bank-card-asof">{balanceAsOf(account)}</span>
+                  <span className="bank-card-rule" aria-hidden="true" />
+                  <span className="bank-card-stats">
+                    <span>
+                      <small>Spent this month</small>
+                      {spend === null ? "—" : formatMoney(spend, account.currency)}
+                    </span>
+                    <span>
+                      <small>In net position</small>
+                      {account.included ? "Yes" : "No"}
+                    </span>
                   </span>
-                  <span className="fine-print">
+                  <span className="bank-card-note">
                     Cash, not an amount due. Transfers, payments, and income are excluded from
                     spending.
                   </span>
-                  <span className="card-foot">
-                    <span
-                      className={`status-pill ${
-                        account.sourceKind === "manual"
-                          ? "status-info"
-                          : account.connectionStatus === "healthy"
-                            ? "status-ok"
-                            : account.connectionStatus === "error"
-                              ? "status-fail"
-                              : "status-warn"
-                      }`}
-                    >
-                      {connectionLabel(account.connectionStatus, account.sourceKind)}
+                  <span className="bank-card-cta">View activity →</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="account-empty-card">
+            <div>
+              <strong>Add your cash side.</strong>
+              <p>
+                A checking or savings account makes your net position complete — and gives the
+                spending numbers a place to land.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={onAddAccount}>
+              Add a bank account
+            </Button>
+          </div>
+        )}
+
+        <p className="fine-print account-group-note">
+          Bank balances are cash. A missing balance is unknown, never $0.00. Debit purchases count
+          toward the month&apos;s spending; transfers, card payments, and income do not.
+        </p>
+      </section>
+
+      <section className="account-group" aria-labelledby="credit-accounts-title">
+        <header className="account-group-head">
+          <div>
+            <p className="eyebrow">The borrowed side</p>
+            <h2 id="credit-accounts-title" className="account-group-title">
+              Credit cards
+            </h2>
+          </div>
+          <strong className="account-group-total">
+            {formatMoney(balances.cardKnownTotalMinor)}
+          </strong>
+        </header>
+
+        {cardAccounts.length > 0 ? (
+          <div
+            className={`card-accounts${faces ? " card-accounts-faces" : " card-accounts-tiles"}`}
+          >
+            {cardAccounts.map((account) => {
+              const spend = spendFor(account);
+              const limit = account.creditLimitMinor;
+              const balance = account.currentBalanceMinor;
+              const used =
+                limit && limit > 0 && balance !== null
+                  ? Math.min(100, Math.max(0, Math.round((balance / limit) * 100)))
+                  : null;
+              return (
+                <button
+                  type="button"
+                  key={account.accountId}
+                  className="card-account"
+                  style={issuerVariables(theme, account.issuer) as CSSProperties}
+                  onClick={() => onFilterAccount(account.accountId)}
+                  aria-label={`Filter transactions to ${account.displayName}`}
+                >
+                  <span className="card-account-chip" aria-hidden="true">
+                    <span className="card-account-chip-mark" />
+                    <span className="card-account-chip-issuer">{account.issuer}</span>
+                    <span className="card-account-chip-last">
+                      •••• {account.lastFour ?? "----"}
                     </span>
-                    <span className="fine-print">Click to filter the ledger</span>
+                  </span>
+                  <span className="card-account-body">
+                    <span className="card-account-head">
+                      <span>
+                        <span className="card-account-name">{account.displayName}</span>
+                        <span className="card-account-issuer">
+                          {account.issuer}
+                          {account.lastFour ? ` · •••• ${account.lastFour}` : ""}
+                        </span>
+                      </span>
+                      <span className={statusClass(statusFor(account))}>
+                        <span className="status-dot" aria-hidden="true" />
+                        {connectionLabel(account.connectionStatus, account.sourceKind)}
+                      </span>
+                    </span>
+
+                    <span className="card-account-balance-row">
+                      <span>
+                        <small>Current balance</small>
+                        <strong>{balanceText(account)}</strong>
+                      </span>
+                      <span>
+                        <small>Spent this month</small>
+                        <strong>
+                          {spend === null ? "—" : formatMoney(spend, account.currency)}
+                        </strong>
+                      </span>
+                    </span>
+
+                    <span className="card-account-util">
+                      <span className="card-account-util-head">
+                        <small>
+                          {used === null
+                            ? "Limit not reported"
+                            : `${used}% of ${formatMoney(limit ?? 0, account.currency)} limit`}
+                        </small>
+                        {account.availableCreditMinor !== null ? (
+                          <small>
+                            {formatMoney(account.availableCreditMinor, account.currency)} available
+                          </small>
+                        ) : null}
+                      </span>
+                      <span className="card-account-track" aria-hidden="true">
+                        <span style={{ width: `${used ?? 0}%` }} />
+                      </span>
+                    </span>
+
+                    <span className="card-account-foot">
+                      <span>{dueText(account, true)}</span>
+                      {account.payment.dueSource === "manual" ? (
+                        <span className="fine-print card-manual-source">
+                          Due source: manual
+                          {account.payment.manualExpired ? " · expired" : ""}
+                        </span>
+                      ) : (
+                        <span
+                          className={account.balanceStale ? "fine-print card-stale" : "fine-print"}
+                        >
+                          {account.balanceStale ? "Balance may be stale" : balanceAsOf(account)}
+                        </span>
+                      )}
+                    </span>
                   </span>
                 </button>
               );
             })}
           </div>
-
-          <div className="card-details">
-            <h3 className="card-details-title">Bank details</h3>
-            <div className="table-wrap">
-              <table className="detail-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Account</th>
-                    <th scope="col">Month spend</th>
-                    <th scope="col">Current balance</th>
-                    <th scope="col">Balance as of</th>
-                    <th scope="col">Type</th>
-                    <th scope="col">Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bankAccounts.map((account) => {
-                    const spend = spendFor(account.accountId, account.currency);
-                    return (
-                      <tr key={account.accountId}>
-                        <th scope="row" className="detail-card">
-                          {account.displayName}
-                          <span className="fine-print"> ···· {account.lastFour ?? "----"}</span>
-                        </th>
-                        <td>{spend ? formatMoney(spend.netMinor, account.currency) : "—"}</td>
-                        <td>{balanceText(account)}</td>
-                        <td>
-                          {account.balanceRetrievedAt
-                            ? formatDateOnly(account.balanceRetrievedAt.slice(0, 10))
-                            : "Unknown"}
-                          {account.balanceStale ? " · stale" : ""}
-                        </td>
-                        <td>{accountTypeLabel(account.accountType)}</td>
-                        <td>{connectionLabel(account.connectionStatus, account.sourceKind)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        ) : (
+          <div className="account-empty-card">
+            <div>
+              <strong>No cards tracked.</strong>
+              <p>Add one if you want to see borrowing beside your cash.</p>
             </div>
-            <p className="fine-print">
-              Bank balances are cash. A missing balance is unknown, never $0.00. Debit purchases
-              count toward the month&apos;s spending; transfers, card payments, and income do not.
-            </p>
+            <Button variant="secondary" onClick={onAddAccount}>
+              Add a card
+            </Button>
           </div>
-        </section>
-      ) : null}
+        )}
+        <p className="fine-print account-group-note">
+          A statement balance is not the remaining amount due. Missing values are never shown as
+          $0.00. A due date that has already passed is rolled forward a month and marked{" "}
+          <strong>Est.</strong> — its reported minimum belongs to the earlier cycle, so it is not
+          carried over.
+        </p>
+      </section>
+
+      <details className="account-details">
+        <summary>
+          <span>
+            <span className="eyebrow">For the spreadsheet brain</span>
+            <strong>The full account table</strong>
+          </span>
+          <span className="account-details-open">Open tables</span>
+          <span className="account-details-close">Close</span>
+        </summary>
+        <div className="account-details-body">
+          <div className="table-wrap">
+            <h3>Cash accounts</h3>
+            <DetailRows accounts={cashAccounts} kind="cash" spendFor={spendFor} />
+          </div>
+          <div className="table-wrap">
+            <h3>Card accounts</h3>
+            <DetailRows accounts={cardAccounts} kind="card" spendFor={spendFor} />
+          </div>
+        </div>
+      </details>
     </section>
   );
 }

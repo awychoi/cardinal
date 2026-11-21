@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   command,
+  isDepositoryAccount,
   type AppInfo,
   type Dashboard,
   type Settings,
@@ -21,24 +22,70 @@ import { BrandLogo } from "../components/BrandLogo";
 import { RelativeAge } from "../components/RelativeAge";
 import { MakerLink } from "../components/MadeBy";
 import { Button } from "../components/Button";
-import { formatMonthRange, monthLabel } from "../lib/formatting";
+import { formatMoney, formatMonthRange, formatSignedMoney, monthLabel } from "../lib/formatting";
 import type { Theme, ThemeMode } from "../theme/schema";
 
 type View = "overview" | "accounts" | "transactions" | "settings";
 
-const VIEWS: { id: View; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "accounts", label: "Accounts" },
-  { id: "transactions", label: "Transactions" },
-  { id: "settings", label: "Settings" },
+const VIEWS: { id: View; label: string; hint: string }[] = [
+  { id: "overview", label: "Overview", hint: "The big picture" },
+  { id: "accounts", label: "Accounts", hint: "What you own and owe" },
+  { id: "transactions", label: "Transactions", hint: "Every movement" },
+  { id: "settings", label: "Settings", hint: "Make it yours" },
 ];
 
-const NAV_ICONS: Record<View, string> = {
-  overview: "M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z",
-  accounts: "M1.5 3.5h13v9h-13zM1.5 6.5h13",
-  transactions: "M2 4h12M2 8h12M2 12h7",
-  settings: "M2 5.5h12M2 10.5h12",
-};
+const VIEW_GROUPS: { id: string; label: string; views: View[] }[] = [
+  { id: "money", label: "Your money", views: ["overview", "accounts", "transactions"] },
+  { id: "vault", label: "The vault", views: ["settings"] },
+];
+
+function NavIcon({ view }: { view: View }) {
+  switch (view) {
+    case "overview":
+      return (
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <path d="M2.25 8 8 2.75 13.75 8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3.6 6.9v6.35h8.8V6.9" strokeLinejoin="round" />
+          <path d="M6.4 13.25v-3.6h3.2v3.6" strokeLinejoin="round" />
+        </svg>
+      );
+    case "accounts":
+      return (
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <path d="M8 2.2v11.6M3.1 4.1h9.8" strokeLinecap="round" />
+          <path
+            d="m4.5 4.1-2.2 4.4h4.4L4.5 4.1ZM11.5 4.1l-2.2 4.4h4.4L11.5 4.1Z"
+            strokeLinejoin="round"
+          />
+          <path d="M5.4 13.8h5.2" strokeLinecap="round" />
+        </svg>
+      );
+    case "transactions":
+      return (
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <path
+            d="M2.6 5.1h10.1M10.2 2.6l2.5 2.5-2.5 2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M13.4 10.9H3.3M5.8 8.4l-2.5 2.5 2.5 2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    default:
+      return (
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <path d="M2.6 4.4h10.8M2.6 8h10.8M2.6 11.6h10.8" strokeLinecap="round" />
+          <circle cx="5.2" cy="4.4" r="1.5" fill="var(--sidebar)" />
+          <circle cx="10.4" cy="8" r="1.5" fill="var(--sidebar)" />
+          <circle cx="6.8" cy="11.6" r="1.5" fill="var(--sidebar)" />
+        </svg>
+      );
+  }
+}
 
 export function AppShell({
   info,
@@ -212,67 +259,143 @@ export function AppShell({
   const brand = (
     <div className="brand">
       <BrandLogo mode={mode} />
-      {demo ? <span className="status-pill status-warn">Demo</span> : null}
+      {demo ? <span className="status-pill status-warn demo-pill">Demo</span> : null}
     </div>
   );
 
+  const navCounts: Partial<Record<View, number>> = dashboard
+    ? {
+        accounts: dashboard.overview.accounts.filter((account) => account.included).length,
+        transactions: dashboard.summary.rowCount,
+      }
+    : {};
+
   const navigation = (
     <nav className={sidebar ? "side-nav" : "nav"} aria-label="Primary">
-      {VIEWS.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className={
-            sidebar
-              ? `side-nav-item${view === item.id ? " side-nav-item-active" : ""}`
-              : `nav-item${view === item.id ? " nav-item-active" : ""}`
-          }
-          aria-current={view === item.id ? "page" : undefined}
-          onClick={() => {
-            if (item.id === "settings") setSettingsTarget(null);
-            setView(item.id);
-          }}
-        >
-          {sidebar ? (
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              aria-hidden="true"
-            >
-              <path d={NAV_ICONS[item.id]} />
-            </svg>
-          ) : null}
-          {item.label}
-        </button>
+      {VIEW_GROUPS.map((group) => (
+        <div className="nav-group" key={group.id}>
+          <span className="nav-eyebrow" aria-hidden="true">
+            {group.label}
+          </span>
+          {group.views.map((viewId) => {
+            const item = VIEWS.find((candidate) => candidate.id === viewId);
+            if (!item) return null;
+            const count = navCounts[item.id];
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={
+                  sidebar
+                    ? `side-nav-item${view === item.id ? " side-nav-item-active" : ""}`
+                    : `nav-item${view === item.id ? " nav-item-active" : ""}`
+                }
+                aria-current={view === item.id ? "page" : undefined}
+                aria-label={item.label}
+                title={item.hint}
+                onClick={() => {
+                  if (item.id === "settings") setSettingsTarget(null);
+                  setView(item.id);
+                }}
+              >
+                <span className="nav-icon" aria-hidden="true">
+                  <NavIcon view={item.id} />
+                </span>
+                <span className="nav-copy">
+                  <span className="nav-label">{item.label}</span>
+                  {!sidebar ? <span className="nav-hint">{item.hint}</span> : null}
+                </span>
+                {count && count > 0 ? (
+                  <span className="nav-count" aria-hidden="true">
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       ))}
     </nav>
   );
 
   const lockButton = (
-    <Button variant="ghost" aria-label="Lock now" onClick={() => void onLock()}>
+    <Button
+      variant="ghost"
+      aria-label="Lock now"
+      className="lock-button"
+      onClick={() => void onLock()}
+    >
       {demo ? "Exit demo" : "Lock"}
     </Button>
+  );
+
+  const balances = dashboard?.overview.balances;
+  const includedAccounts = dashboard?.overview.accounts.filter((account) => account.included) ?? [];
+  const cashAccounts = includedAccounts.filter((account) =>
+    isDepositoryAccount(account.accountType),
+  );
+  const cardAccounts = includedAccounts.filter(
+    (account) => !isDepositoryAccount(account.accountType),
+  );
+
+  const sideNet = dashboard ? (
+    <div className="side-net" aria-label="Current net position">
+      <div className="side-net-head">
+        <span className="side-net-label">Net position</span>
+        <span className="side-net-asof">current</span>
+      </div>
+      <strong
+        className={`side-net-value${balances && balances.netPositionMinor < 0 ? " is-negative" : ""}`}
+      >
+        {balances ? formatSignedMoney(balances.netPositionMinor) : "—"}
+      </strong>
+      <div className="side-net-split">
+        <span>
+          <span className="side-net-key">Cash</span>
+          <span>{balances ? formatMoney(balances.cashKnownTotalMinor) : "—"}</span>
+        </span>
+        <span>
+          <span className="side-net-key">Owed</span>
+          <span>{balances ? formatMoney(balances.cardKnownTotalMinor) : "—"}</span>
+        </span>
+      </div>
+      <div className="side-net-foot">
+        {cashAccounts.length} cash · {cardAccounts.length} card
+        {cardAccounts.length === 1 ? "" : "s"}
+        {balances && !balances.netPositionComplete ? " · some missing" : ""}
+      </div>
+      <button type="button" className="side-add" onClick={addAccount}>
+        <span aria-hidden="true">+</span> Add an account
+      </button>
+    </div>
+  ) : (
+    <div className="side-net side-net-loading" aria-hidden="true">
+      <span className="skeleton-block skeleton-line skeleton-line-short" />
+      <span className="skeleton-block skeleton-line" />
+      <span className="skeleton-block skeleton-line skeleton-line-mid" />
+    </div>
   );
 
   return (
     <div className={`app ${sidebar ? "app-sidebar" : "app-topbar"}`} data-nav={navigationStyle}>
       {sidebar ? (
         <aside className="sidebar">
-          {brand}
+          <div className="sidebar-head">{brand}</div>
+          {sideNet}
           {navigation}
           <div className="side-foot">
-            {themeControl}
-            {lockButton}
+            <div className="side-controls">
+              {themeControl}
+              {lockButton}
+            </div>
             <div className="side-meta">
               <div className="side-status">
                 <span
-                  className={connectionError && !demo ? "dot sync-dot-warn" : "dot dot-muted"}
+                  className={connectionError && !demo ? "dot sync-dot-warn" : "dot dot-success"}
                   aria-hidden="true"
                 />
                 <span className="side-status-label">
-                  {demo ? "Demo ledger" : "Encrypted ledger"}
+                  {demo ? "Synthetic demo ledger" : "Encrypted ledger"}
                 </span>
               </div>
               <span className="side-version">
@@ -287,49 +410,64 @@ export function AppShell({
         <header className="header">
           {sidebar ? null : brand}
 
-          <div className="month-nav" aria-label="Selected calendar month">
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Previous month"
-              disabled={!dashboard}
-              onClick={() => dashboard && setMonth(dashboard.previousMonth)}
-            >
-              ‹
-            </button>
-            <div className="month-display">
-              <span className="month-label">{dashboard ? monthLabel(dashboard.month) : "—"}</span>
-              <span className="month-range">
-                {dashboard ? formatMonthRange(dashboard.startDate, dashboard.endDateExclusive) : ""}
+          {view === "settings" ? (
+            <div className="header-context">
+              <span className="header-context-mark" aria-hidden="true" />
+              <span>
+                <span className="header-context-kicker">Encrypted preferences</span>
+                <span className="header-context-title">Kept on this Mac</span>
               </span>
             </div>
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Next month"
-              disabled={!dashboard || atCurrentMonth}
-              onClick={() => dashboard && setMonth(dashboard.nextMonth)}
-            >
-              ›
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-small"
-              disabled={!dashboard || dashboard.month === dashboard.currentMonth}
-              onClick={() => setMonth(null)}
-            >
-              This month
-            </button>
-          </div>
+          ) : (
+            <div className="month-nav" aria-label="Selected calendar month">
+              <span className="month-nav-caption" aria-hidden="true">
+                Spending month
+              </span>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Previous month"
+                disabled={!dashboard}
+                onClick={() => dashboard && setMonth(dashboard.previousMonth)}
+              >
+                ‹
+              </button>
+              <div className="month-display">
+                <span className="month-label">{dashboard ? monthLabel(dashboard.month) : "—"}</span>
+                <span className="month-range">
+                  {dashboard
+                    ? formatMonthRange(dashboard.startDate, dashboard.endDateExclusive)
+                    : ""}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="Next month"
+                disabled={!dashboard || atCurrentMonth}
+                onClick={() => dashboard && setMonth(dashboard.nextMonth)}
+              >
+                ›
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-small this-month"
+                disabled={!dashboard || dashboard.month === dashboard.currentMonth}
+                onClick={() => setMonth(null)}
+              >
+                This month
+              </button>
+            </div>
+          )}
 
           <div className="header-actions">
             <span
               className="sync-state"
               role={syncNote ? "status" : undefined}
-              title={syncNote ?? undefined}
+              title={syncNote ?? "Balances and the ledger sync from the encrypted store."}
             >
               <span
-                className={connectionError && !demo ? "dot sync-dot-warn" : "dot dot-muted"}
+                className={connectionError && !demo ? "dot sync-dot-warn" : "dot dot-success"}
                 aria-hidden="true"
               />
               {syncNote ?? syncLabel}
@@ -442,13 +580,20 @@ export function AppShell({
               <OverviewView
                 dashboard={dashboard}
                 theme={theme}
+                mode={mode}
                 onAddAccount={addAccount}
                 onOpenAccounts={() => setView("accounts")}
                 onOpenSettings={() => openSettings("accounts", "connections")}
                 onOpenTransactions={() => setView("transactions")}
+                onOpenAccount={filterAccount}
               />
             ) : view === "accounts" ? (
-              <AccountsView dashboard={dashboard} theme={theme} onFilterAccount={filterAccount} />
+              <AccountsView
+                dashboard={dashboard}
+                theme={theme}
+                onFilterAccount={filterAccount}
+                onAddAccount={addAccount}
+              />
             ) : view === "transactions" ? (
               <LedgerView
                 dashboard={dashboard}

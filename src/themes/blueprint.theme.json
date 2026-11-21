@@ -1,8 +1,8 @@
 {
   "$schema": "./theme.schema.json",
   "id": "blueprint",
-  "name": "Blueprint",
-  "description": "Wychoi.com: navy ink, white paper, electric blue action, orange markers. The default.",
+  "name": "Almanac",
+  "description": "Warm paper, cardinal ink, and a red pencil. A quieter way to read your money. The default.",
   "options": {
     "cardArt": "faces",
     "density": "comfortable",
@@ -17,130 +17,130 @@
   "type": {
     "sans": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Helvetica Neue\", sans-serif",
     "mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
-    "display": "\"Hoefler Text\", \"Iowan Old Style\", Palatino, ui-serif, Georgia, serif",
+    "display": "\"Iowan Old Style\", \"Palatino Linotype\", Palatino, ui-serif, Georgia, serif",
     "scale": 1.02,
-    "displayWeight": 500,
-    "displayTracking": -0.035,
-    "lineHeight": 1.55
+    "displayWeight": 600,
+    "displayTracking": -0.025,
+    "lineHeight": 1.5
   },
   "shape": {
-    "controlRadius": 2,
-    "panelRadius": 3,
-    "cardRadius": 6,
+    "controlRadius": 10,
+    "panelRadius": 18,
+    "cardRadius": 22,
     "borderWidth": 1
   },
   "spacing": {
-    "screen": 32,
-    "card": 20,
+    "screen": 30,
+    "card": 22,
     "gap": 16
   },
   "motion": {
-    "fast": 160,
-    "base": 220,
-    "easing": "cubic-bezier(.22, 1, .36, 1)"
+    "fast": 150,
+    "base": 260,
+    "easing": "cubic-bezier(.2, .8, .2, 1)"
   },
   "modes": {
     "light": {
-      "bg": "#eef2f7",
-      "sidebar": "#e7edf5",
-      "surface": "#ffffff",
-      "surface2": "#e7eeff",
-      "surface3": "#dce6ff",
-      "text": "#081120",
-      "text2": "#26324a",
-      "muted": "#53627a",
-      "border": "#b9c6da",
-      "borderStrong": "#93a6c4",
-      "borderControl": "#5c6e8c",
-      "accent": "#2f5bff",
-      "accentInk": "#2447d8",
-      "success": "#1d4ed8",
-      "onAccent": "#ffffff",
-      "warning": "#a8490a",
-      "danger": "#c83426",
-      "focus": "#2447d8",
+      "bg": "#f2ede3",
+      "sidebar": "#eae3d5",
+      "surface": "#fffdf8",
+      "surface2": "#f2ede2",
+      "surface3": "#e5dcca",
+      "text": "#1a1612",
+      "text2": "#4b4239",
+      "muted": "#6b6054",
+      "border": "#ded4c3",
+      "borderStrong": "#c8bca9",
+      "borderControl": "#807466",
+      "accent": "#bf3a30",
+      "accentInk": "#982a22",
+      "success": "#3f6a50",
+      "onAccent": "#fff8f1",
+      "warning": "#8d5f16",
+      "danger": "#a52f26",
+      "focus": "#8f2a23",
       "chart": [
-        "#2f5bff",
-        "#c45a18",
-        "#081120",
-        "#93a6c4",
-        "#c83426",
-        "#5c6e8c"
+        "#bf3a30",
+        "#3f6a50",
+        "#c08a2e",
+        "#47667c",
+        "#8c5b73",
+        "#7a6a53"
       ],
-      "shadow": "rgb(8 17 32 / 7%)",
-      "shadowStrong": "rgb(8 17 32 / 42%)"
+      "shadow": "rgb(43 31 20 / 8%)",
+      "shadowStrong": "rgb(43 31 20 / 40%)"
     },
     "dark": {
-      "bg": "#070d1a",
-      "sidebar": "#0a1730",
-      "surface": "#0e2040",
-      "surface2": "#12284d",
-      "surface3": "#17325b",
-      "text": "#f4f7ff",
-      "text2": "#dce6fb",
-      "muted": "#a9b9d8",
-      "border": "#29476f",
-      "borderStrong": "#3e5f8f",
-      "borderControl": "#7f9ac2",
-      "accent": "#5b8dff",
-      "accentInk": "#9dbbff",
-      "success": "#9dbbff",
-      "onAccent": "#07101f",
-      "warning": "#ff9a5a",
-      "danger": "#ff5c4d",
-      "focus": "#5b8dff",
+      "bg": "#17130f",
+      "sidebar": "#1c1712",
+      "surface": "#221c16",
+      "surface2": "#2a231b",
+      "surface3": "#342b21",
+      "text": "#f6eee2",
+      "text2": "#d4c7b6",
+      "muted": "#a99a85",
+      "border": "#362d23",
+      "borderStrong": "#4a3d2e",
+      "borderControl": "#8b7b65",
+      "accent": "#e06e5f",
+      "accentInk": "#f0a092",
+      "success": "#9dbb9f",
+      "onAccent": "#2a0e09",
+      "warning": "#e1b471",
+      "danger": "#f0988b",
+      "focus": "#eba28f",
       "chart": [
-        "#5b8dff",
-        "#ff9a5a",
-        "#f4f7ff",
-        "#bfd3ff",
-        "#ff5c4d",
-        "#7f9ac2"
+        "#e06e5f",
+        "#9dbb9f",
+        "#e1b471",
+        "#8fabbe",
+        "#c795a8",
+        "#b4a183"
       ],
-      "shadow": "rgb(0 0 0 / 40%)",
-      "shadowStrong": "rgb(0 0 0 / 68%)"
+      "shadow": "rgb(0 0 0 / 38%)",
+      "shadowStrong": "rgb(0 0 0 / 66%)"
     }
   },
   "issuers": {
     "default": {
-      "from": "#17325b",
-      "to": "#081120",
-      "ink": "#f4f7ff"
+      "from": "#3b3228",
+      "to": "#1b1712",
+      "ink": "#f6eee2"
     },
     "chase": {
-      "from": "#2f5bff",
-      "to": "#12284d",
-      "ink": "#f4f7ff"
+      "from": "#bf3a30",
+      "to": "#76221d",
+      "ink": "#fff8f1"
     },
     "synchrony": {
-      "from": "#1b2430",
-      "to": "#070d1a",
-      "ink": "#f4f7ff"
+      "from": "#2d2822",
+      "to": "#14110e",
+      "ink": "#f6eee2"
     },
     "bilt": {
-      "from": "#262c38",
-      "to": "#0b111c",
-      "ink": "#f4f7ff"
+      "from": "#373028",
+      "to": "#1a1612",
+      "ink": "#f6eee2"
     },
     "american-express": {
-      "from": "#dce6ff",
-      "to": "#bfd3ff",
-      "ink": "#07101f"
+      "from": "#d9cbb5",
+      "to": "#bfae93",
+      "ink": "#211b15"
     },
     "citi": {
-      "from": "#0f3bb0",
-      "to": "#071f66",
-      "ink": "#f4f7ff"
+      "from": "#47667c",
+      "to": "#293e4d",
+      "ink": "#f6eee2"
     },
     "demo-bank": {
-      "from": "#b8500f",
-      "to": "#8f2f22",
-      "ink": "#fff7f2"
+      "from": "#3f6a50",
+      "to": "#294734",
+      "ink": "#f3f8f0"
     },
     "paypal": {
-      "from": "#2f5bff",
-      "to": "#091c4d",
-      "ink": "#f4f7ff"
+      "from": "#47667c",
+      "to": "#2b3f4d",
+      "ink": "#f6eee2"
     }
   }
 }

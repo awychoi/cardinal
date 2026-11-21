@@ -34,15 +34,14 @@ beforeEach(() => {
 });
 
 describe("OverviewView", () => {
-  it("renders the hero, due rail, balances, charts, and attention card", async () => {
+  it("renders the wealth hero, quick read, due rail, charts, and deeper details", async () => {
     renderOverview();
 
     expect(screen.getByText("$502.56")).toBeInTheDocument();
-    expect(screen.getByText("Pending in this month")).toBeInTheDocument();
-    expect(screen.getByText("Current card balances")).toBeInTheDocument();
-    expect(screen.getByText("Cash")).toBeInTheDocument();
-    expect(screen.getByText("Net position")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Upcoming reported payments" })).toBeInTheDocument();
+    expect(screen.getByText("Cash on hand")).toBeInTheDocument();
+    expect(screen.getByText("Available credit")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Coming up" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "A quick read" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Needs attention" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Gross spending by category/i })).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /Monthly net spending/i })).toBeInTheDocument();
@@ -50,17 +49,30 @@ describe("OverviewView", () => {
     expect(screen.getByText(/Other currencies are shown separately/i)).toBeInTheDocument();
   });
 
-  it("keeps net spending left and the aggregate card balance right in one block", () => {
+  it("leads with net position and gives cash and card balances equal billing", () => {
     const dashboard = mockDashboard("demo", "2026-10");
     renderOverview("ledger", dashboard);
 
-    const hero = screen.getByRole("region", { name: "Net spending" });
-    const total = formatMoney(dashboard.overview.balances.cardKnownTotalMinor);
-    expect(within(hero).getByText("Current card balances")).toBeInTheDocument();
-    expect(within(hero).getByText(total)).toBeInTheDocument();
-    // The aggregate has exactly one home; the old card-balances metric is gone.
-    expect(screen.getAllByText(total)).toHaveLength(1);
-    expect(within(hero).getByText("Net spending")).toBeInTheDocument();
+    const hero = screen.getByRole("region", { name: "Net position" });
+    const cash = formatMoney(dashboard.overview.balances.cashKnownTotalMinor);
+    const cards = formatMoney(dashboard.overview.balances.cardKnownTotalMinor);
+    expect(within(hero).getByText("Net position")).toBeInTheDocument();
+    expect(within(hero).getByText("Cash on hand")).toBeInTheDocument();
+    expect(within(hero).getByText("Card balances")).toBeInTheDocument();
+    expect(within(hero).getByText("Available credit")).toBeInTheDocument();
+    expect(within(hero).getAllByText(cash).length).toBeGreaterThan(0);
+    expect(within(hero).getAllByText(cards).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Card balances sit/)).toBeInTheDocument();
+  });
+
+  it("puts the bank account beside cards in the account preview", async () => {
+    renderOverview();
+
+    expect(screen.getByRole("heading", { name: "Your accounts" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open activity for Everyday Checking (demo)" }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/Cash covers/)).toBeInTheDocument();
   });
 
   it("replaces the per-card balance list with a utilization graphic", () => {

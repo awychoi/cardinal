@@ -9,6 +9,12 @@ export function formatMoney(minor: number, currency = "USD"): string {
   }).format(minor / 100);
 }
 
+/** A signed amount with a true minus sign, for headline figures. */
+export function formatSignedMoney(minor: number, currency = "USD"): string {
+  const amount = formatMoney(Math.abs(minor), currency);
+  return minor < 0 ? `−${amount}` : amount;
+}
+
 export function parseDateOnly(value: string): Date {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);

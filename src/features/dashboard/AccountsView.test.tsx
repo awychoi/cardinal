@@ -12,6 +12,7 @@ function renderAccounts() {
       dashboard={mockDashboard("demo", "2026-10")}
       theme={getTheme("ledger")}
       onFilterAccount={onFilterAccount}
+      onAddAccount={vi.fn()}
     />,
   );
   return { onFilterAccount };
@@ -38,6 +39,22 @@ describe("AccountsView", () => {
     expect(within(bankSection).queryByText(/Last statement/)).not.toBeInTheDocument();
     expect(within(bankSection).queryByText(/Next payment/)).not.toBeInTheDocument();
     expect(within(bankSection).getAllByText("checking").length).toBeGreaterThan(0);
+    expect(within(bankSection).getByText("In net position")).toBeInTheDocument();
+  });
+
+  it("offers a way to add a bank account", async () => {
+    const user = userEvent.setup();
+    const onAddAccount = vi.fn();
+    render(
+      <AccountsView
+        dashboard={mockDashboard("demo", "2026-10")}
+        theme={getTheme("ledger")}
+        onFilterAccount={vi.fn()}
+        onAddAccount={onAddAccount}
+      />,
+    );
+    await user.click(screen.getAllByRole("button", { name: "Add account" })[0]);
+    expect(onAddAccount).toHaveBeenCalledOnce();
   });
 
   it("filters the ledger from a bank account", async () => {

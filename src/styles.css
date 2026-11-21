@@ -2315,3 +2315,574 @@ h3 {
   color: var(--danger);
   text-decoration: line-through;
 }
+
+/* ==========================================================================
+   Wealth-app refresh: shared settings, forms, vault, onboarding
+   Loaded before the per-view styles, so view CSS stays authoritative.
+   ========================================================================== */
+
+.dashboard {
+  gap: 18px;
+}
+
+.panel {
+  border-radius: var(--radius-panel);
+  gap: 14px;
+  padding: 20px;
+}
+
+.panel h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+}
+
+.danger-zone {
+  border-color: color-mix(in srgb, var(--danger) 38%, var(--border));
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--danger) 4%, transparent);
+}
+
+.text-input,
+select,
+.form-grid input:not([type="checkbox"]):not([type="radio"]),
+.form-grid select {
+  background: var(--surface-2);
+  border-color: var(--border);
+  border-radius: var(--radius-control);
+  font-size: 12px;
+}
+
+.text-input:focus,
+select:focus,
+.form-grid input:focus,
+.form-grid select:focus {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+  outline-offset: 0;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.form-grid label {
+  gap: 4px;
+}
+
+.checkbox-row {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+/* ---------- Settings ---------- */
+
+.settings {
+  gap: 20px;
+}
+
+.settings-layout {
+  gap: 20px;
+  grid-template-columns: 210px minmax(0, 1fr);
+}
+
+.settings-nav {
+  border-radius: var(--radius-panel);
+  gap: 2px;
+  padding: 7px;
+  position: sticky;
+  top: 84px;
+}
+
+.settings-nav-item {
+  border-radius: calc(var(--radius-control) - 2px);
+  color: var(--text-2);
+  font-size: 11.5px;
+  padding: 8px 10px;
+}
+
+.settings-nav-item-active {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 650;
+}
+
+.settings-section {
+  gap: 18px;
+}
+
+.settings-tabs {
+  border-radius: 999px;
+  gap: 2px;
+  padding: 3px;
+  width: fit-content;
+}
+
+.settings-tab {
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 5px 12px;
+}
+
+.settings-tab-active {
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+}
+
+.setting-label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.setting-row p {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.timezone-select,
+.timezone-select-wide {
+  min-width: 280px;
+}
+
+.mode-seg {
+  border-radius: 999px;
+  padding: 2px;
+}
+
+.mode-seg button {
+  border-radius: 999px;
+}
+
+.theme-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.theme-card {
+  border-radius: var(--radius-control);
+  padding: 9px;
+}
+
+.theme-card-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.theme-preview {
+  border-radius: 7px;
+  height: 62px;
+}
+
+.theme-preview-side {
+  width: 22%;
+}
+
+.theme-card-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: var(--display-tracking);
+}
+
+.theme-card-desc {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.accounts-table {
+  font-size: 11.5px;
+}
+
+.accounts-table th {
+  color: var(--muted);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 7px 9px;
+}
+
+.accounts-table td {
+  padding: 9px;
+}
+
+.events-table th,
+.events-table td {
+  padding: 8px 9px;
+}
+
+.facts dd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.inline-error,
+.inline-notice {
+  border-radius: var(--radius-control);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.maker-card {
+  border-radius: var(--radius-control);
+}
+
+/* ---------- Vault gate ---------- */
+
+.vault-gate {
+  align-items: center;
+  display: grid;
+  gap: 48px;
+  grid-template-columns: minmax(0, 1fr) minmax(390px, 530px);
+  margin: 0 auto;
+  max-width: 1160px;
+  min-height: 100vh;
+  padding: 48px 36px;
+  place-items: center;
+  position: relative;
+}
+
+.vault-scene {
+  display: grid;
+  gap: 14px;
+  justify-self: end;
+  max-width: 500px;
+  min-width: 0;
+}
+
+.vault-scene-orbit {
+  align-items: center;
+  display: grid;
+  height: 154px;
+  margin: 0 0 12px 8px;
+  place-items: center;
+  position: relative;
+  width: 154px;
+}
+
+.vault-scene-orbit img {
+  height: 84px;
+  position: relative;
+  width: auto;
+  z-index: 2;
+}
+
+.vault-scene-ring {
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  border-radius: 50%;
+  position: absolute;
+}
+
+.vault-scene-ring-a {
+  inset: 0;
+}
+
+.vault-scene-ring-b {
+  inset: 21px;
+  border-color: var(--border-strong);
+  border-style: dashed;
+}
+
+.vault-scene-orbit::after {
+  background: var(--accent);
+  border-radius: 50%;
+  content: "";
+  height: 8px;
+  position: absolute;
+  right: 10px;
+  top: 22px;
+  width: 8px;
+}
+
+.vault-scene-kicker {
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.vault-scene-title {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(38px, 4.4vw, 56px);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-tracking);
+  line-height: 0.94;
+  margin: 0;
+}
+
+.vault-scene-copy {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 44ch;
+}
+
+.vault-principles {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.vault-principles li {
+  align-items: baseline;
+  border-top: 1px dashed var(--border);
+  color: var(--text-2);
+  display: flex;
+  font-size: 11px;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.vault-principles span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.vault-card {
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      color-mix(in srgb, var(--accent) 7%, transparent),
+      transparent 36%
+    ),
+    var(--surface);
+  border-radius: var(--radius-card);
+  display: grid;
+  gap: 12px;
+  padding: 30px;
+  width: 100%;
+}
+
+.vault-brand {
+  margin-bottom: 2px;
+}
+
+.vault-brand .brand-logo {
+  height: 36px;
+  font-size: 23px;
+}
+
+.vault-card h1 {
+  font-size: clamp(24px, 2.6vw, 31px);
+  line-height: 1.04;
+  margin: 0;
+}
+
+.vault-card .muted {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 48ch;
+}
+
+.vault-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.vault-actions .btn-primary {
+  border-radius: 999px;
+  padding-inline: 16px;
+}
+
+.vault-facts {
+  gap: 5px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  padding-left: 16px;
+}
+
+.sheet-note {
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  font-size: 10.5px;
+  line-height: 1.45;
+  padding: 9px 11px;
+}
+
+.vault-demo {
+  margin-top: 2px;
+  padding-top: 11px;
+}
+
+.vault-maker {
+  font-size: 10px;
+  margin-top: 6px;
+}
+
+.vault-gate + .gate-banner {
+  color: var(--muted);
+}
+
+/* ---------- Boot and onboarding ---------- */
+
+.boot-screen {
+  background: radial-gradient(circle at 50% 36%, var(--accent-soft), transparent 30%), var(--bg);
+  padding: 40px;
+}
+
+.boot-card {
+  width: min(480px, 100%);
+  box-shadow: 0 24px 70px var(--shadow);
+}
+
+.boot-screen .boot-logo {
+  height: 40px;
+  font-size: 25px;
+}
+
+.boot-screen .status {
+  font-size: 12px;
+}
+
+.wizard {
+  background:
+    radial-gradient(
+      circle at 50% 6%,
+      color-mix(in srgb, var(--accent) 8%, transparent),
+      transparent 32%
+    ),
+    var(--bg);
+  padding: 36px 24px;
+}
+
+.wizard-card {
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      color-mix(in srgb, var(--accent) 6%, transparent),
+      transparent 30%
+    ),
+    var(--surface);
+  border-radius: var(--radius-card);
+  gap: 14px;
+  max-width: 810px;
+  padding: 30px;
+  width: min(810px, 100%);
+}
+
+.wizard-header {
+  margin-bottom: 2px;
+}
+
+.wizard-steps {
+  gap: 4px;
+}
+
+.wizard-step {
+  font-size: 10.5px;
+  border-radius: 999px;
+}
+
+.wizard-step-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.wizard-step-active .wizard-step-number {
+  background: color-mix(in srgb, var(--on-accent) 16%, transparent);
+  border-color: transparent;
+  color: var(--on-accent);
+}
+
+.wizard-progress {
+  font-size: 10.5px;
+}
+
+.wizard-card h1 {
+  font-size: clamp(25px, 3vw, 33px);
+  line-height: 1.04;
+  margin-top: 4px;
+}
+
+.wizard-callout {
+  border-radius: var(--radius-control);
+  font-size: 11.5px;
+}
+
+.wizard-credential-row {
+  gap: 8px;
+}
+
+.account-form {
+  gap: 15px;
+}
+
+.form-grid {
+  gap: 10px;
+}
+
+.account-balance-note {
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+  margin: 2px 0 0;
+}
+
+/* ---------- Shared empty / notice ---------- */
+
+.notice-bar {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.inline-notice {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.empty-state {
+  color: var(--text);
+}
+
+.empty-state .btn {
+  margin-top: 4px;
+}
+
+@media (max-width: 920px) {
+  .vault-gate {
+    gap: 24px;
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 620px;
+    padding: 32px 24px;
+  }
+
+  .vault-scene {
+    display: none;
+  }
+
+  .vault-card {
+    padding: 26px;
+  }
+
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wealth-beam-cash,
+  .wealth-beam-debt {
+    transition: none;
+  }
+}

@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-table";
 import {
   command,
+  isDepositoryAccount,
   type CurrencySubtotal,
   type Dashboard,
   type LedgerPage,
@@ -16,8 +17,10 @@ import {
 import { friendlyError } from "../../lib/bridge/errors";
 import { formatDateOnly, formatMoney, formatMonthRange, monthLabel } from "../../lib/formatting";
 import { Button } from "../../components/Button";
+import { AccountKindIcon } from "../../components/AccountKindIcon";
 import { amountTone, dayTotals, merchantMonogram, statusFor } from "./ledgerPresentation";
 import { TransactionEditor } from "./TransactionEditor";
+import "./ledger.css";
 
 type Mode = "transactions" | "suppliers";
 type Status = "all" | "pending" | "posted";
@@ -164,6 +167,19 @@ export function LedgerView({
   ]);
 
   const grouped = sort === "date_desc" || sort === "date_asc";
+  const accountKindById = useMemo(
+    () =>
+      new Map<string, "cash" | "card">(
+        dashboard.overview.accounts.map(
+          (account) =>
+            [
+              account.accountId,
+              isDepositoryAccount(account.accountType) ? "cash" : "card",
+            ] as const,
+        ),
+      ),
+    [dashboard.overview.accounts],
+  );
   const columns = useMemo(() => {
     const dateColumn = columnHelper.accessor("reportingDate", {
       header: "Date",
@@ -181,13 +197,24 @@ export function LedgerView({
       ),
     });
     const accountColumn = columnHelper.accessor("accountName", {
-      header: "Card",
-      cell: (info) => (
-        <span>
-          {info.getValue()}
-          {info.row.original.accountLastFour ? ` · ${info.row.original.accountLastFour}` : ""}
-        </span>
-      ),
+      header: "Account",
+      cell: (info) => {
+        const kind = accountKindById.get(info.row.original.accountId) ?? "card";
+        return (
+          <span className="ledger-account-cell">
+            <AccountKindIcon kind={kind} className="ledger-account-kind" />
+            <span className="ledger-account-copy">
+              <span className="ledger-account-name">{info.getValue()}</span>
+              <span className="ledger-account-sub">
+                {kind === "cash" ? "Bank" : "Card"}
+                {info.row.original.accountLastFour
+                  ? ` · •••• ${info.row.original.accountLastFour}`
+                  : ""}
+              </span>
+            </span>
+          </span>
+        );
+      },
     });
     const categoryColumn = columnHelper.accessor("category", {
       header: "Category",
@@ -219,7 +246,7 @@ export function LedgerView({
     return grouped
       ? [merchantColumn, accountColumn, categoryColumn, statusColumn, amountColumn]
       : [dateColumn, merchantColumn, accountColumn, categoryColumn, statusColumn, amountColumn];
-  }, [grouped]);
+  }, [accountKindById, grouped]);
 
   const table = useReactTable({
     data: result?.rows ?? [],
@@ -347,12 +374,16 @@ export function LedgerView({
     <section className="dashboard" aria-labelledby="transactions-title">
       <header className="page-heading">
         <div>
+          <p className="eyebrow">
+            {mode === "transactions" ? "Every movement, in one place" : "One month, grouped"}
+          </p>
           <h1 id="transactions-title">
             {mode === "transactions" ? "Transactions" : "By supplier"}
           </h1>
           <p className="muted">
             {monthLabel(dashboard.month)} ·{" "}
-            {formatMonthRange(dashboard.startDate, dashboard.endDateExclusive)}
+            {formatMonthRange(dashboard.startDate, dashboard.endDateExclusive)} · cards and bank
+            accounts together
           </p>
         </div>
         <div className="heading-actions">
@@ -421,7 +452,7 @@ export function LedgerView({
               />
             </label>
             <label className="filter-field">
-              <span className="field-label">Card</span>
+              <span className="field-label">Account</span>
               <select
                 aria-label="Filter by account"
                 value={account}

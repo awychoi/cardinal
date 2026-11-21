@@ -14,10 +14,21 @@ export function OverviewSkeleton() {
         <span className="skeleton-block skeleton-line" aria-hidden="true" />
         <span className="skeleton-block skeleton-line skeleton-line-mid" aria-hidden="true" />
       </div>
+      <div className="skeleton-panel skeleton-quick">
+        <span className="skeleton-block skeleton-line skeleton-line-short" aria-hidden="true" />
+        <span className="skeleton-block skeleton-line" aria-hidden="true" />
+        <span className="skeleton-block skeleton-line skeleton-line-mid" aria-hidden="true" />
+        <span className="skeleton-block skeleton-line" aria-hidden="true" />
+      </div>
+      <div className="skeleton-panel skeleton-accounts">
+        <span className="skeleton-block skeleton-line skeleton-line-short" aria-hidden="true" />
+        <span className="skeleton-block skeleton-line" aria-hidden="true" />
+        <span className="skeleton-block skeleton-line" aria-hidden="true" />
+        <span className="skeleton-block skeleton-line skeleton-line-mid" aria-hidden="true" />
+      </div>
       <div className="skeleton-panel skeleton-due">
         <span className="skeleton-block skeleton-line skeleton-line-short" aria-hidden="true" />
         <span className="skeleton-block skeleton-strip" aria-hidden="true" />
-        <span className="skeleton-block skeleton-line" aria-hidden="true" />
         <span className="skeleton-block skeleton-line" aria-hidden="true" />
         <span className="skeleton-block skeleton-line skeleton-line-mid" aria-hidden="true" />
       </div>
@@ -28,17 +39,6 @@ export function OverviewSkeleton() {
       <div className="skeleton-panel skeleton-trend">
         <span className="skeleton-block skeleton-line skeleton-line-short" aria-hidden="true" />
         <span className="skeleton-block skeleton-chart" aria-hidden="true" />
-      </div>
-      <div className="skeleton-panel skeleton-utilization">
-        <span className="skeleton-block skeleton-line skeleton-line-short" aria-hidden="true" />
-        <span className="skeleton-block skeleton-line" aria-hidden="true" />
-        <span className="skeleton-block skeleton-line" aria-hidden="true" />
-        <span className="skeleton-block skeleton-line skeleton-line-mid" aria-hidden="true" />
-      </div>
-      <div className="skeleton-panel skeleton-attention">
-        <span className="skeleton-block skeleton-line skeleton-line-short" aria-hidden="true" />
-        <span className="skeleton-block skeleton-line" aria-hidden="true" />
-        <span className="skeleton-block skeleton-line skeleton-line-mid" aria-hidden="true" />
       </div>
     </section>
   );

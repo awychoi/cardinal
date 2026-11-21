@@ -2,20 +2,26 @@ import { test, expect } from "@playwright/test";
 import { openPrimaryView, openLocked, openUnlocked } from "./helpers";
 
 test.describe("read-only dashboard (browser mock)", () => {
-  test("overview shows calendar-month and current-data metrics with demo labels", async ({
-    page,
-  }) => {
+  test("overview leads with net position, cash, and a curated read", async ({ page }) => {
     await openUnlocked(page);
-    await expect(page.locator(".hero-balance")).toContainText("Current card balances");
-    await expect(page.locator(".hero-balance")).toContainText("Cash");
-    await expect(page.locator(".hero-balance")).toContainText("Net position");
-    await expect(page.getByText("Upcoming reported payments")).toBeVisible();
-    await expect(page.getByText("Pending in this month")).toBeVisible();
-    await expect(page.getByText(/Balances and upcoming payments as of/i)).toBeVisible();
-    await expect(page.getByText(/Other currencies are shown separately/i)).toBeVisible();
+    const hero = page.locator(".wealth-hero");
+    await expect(hero).toContainText("Net position");
+    await expect(hero).toContainText("Cash on hand");
+    await expect(hero).toContainText("Card balances");
+    await expect(hero).toContainText("Available credit");
+    await expect(page.getByRole("heading", { name: "A quick read" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Coming up" })).toBeVisible();
+    await expect(page.getByText("This month so far")).toBeVisible();
     await expect(page.getByRole("list", { name: "Spending by category" })).toBeVisible();
     await expect(page.getByRole("img", { name: /Monthly net spending/i })).toBeVisible();
+    await expect(page.getByText(/Balances and upcoming payments as of/i)).toBeVisible();
+    await expect(page.getByText(/Other currencies are shown separately/i)).toBeVisible();
+
+    await page.locator(".wealth-details > summary").click();
     await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Credit utilization" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /October 2026 in numbers/ })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Utilization by card" })).toBeVisible();
   });
 
   test("theme switch swaps ranked bars for the ring without a reload", async ({ page }) => {
@@ -136,11 +142,7 @@ test.describe("read-only dashboard (browser mock)", () => {
     await expect(page.locator(".month-label")).toHaveText("October 2026");
     // The ledger has nothing beyond the current month, so the forward arrow stops here.
     await expect(page.getByRole("button", { name: "Next month" })).toBeDisabled();
-    const balancesBefore = await page
-      .locator(".hero-balance-block")
-      .first()
-      .locator(".hero-balance-value")
-      .innerText();
+    const balancesBefore = await page.locator(".hero-value").innerText();
     const compositionBefore = await page
       .getByRole("list", { name: "Spending by category" })
       .innerText();
@@ -161,11 +163,7 @@ test.describe("read-only dashboard (browser mock)", () => {
       .getAttribute("aria-label");
     expect(compositionAfter).not.toBe(compositionBefore);
     expect(trendAfter).not.toBe(trendBefore);
-    const balancesAfter = await page
-      .locator(".hero-balance-block")
-      .first()
-      .locator(".hero-balance-value")
-      .innerText();
+    const balancesAfter = await page.locator(".hero-value").innerText();
     expect(balancesAfter).toBe(balancesBefore);
     await page.getByRole("button", { name: "This month" }).click();
     await expect(page.locator(".month-label")).toHaveText("October 2026");

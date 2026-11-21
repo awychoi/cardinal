@@ -189,8 +189,9 @@ export function SettingsView({
     <section className="settings" aria-labelledby="settings-title">
       <header className="page-heading">
         <div>
+          <p className="eyebrow">Make it yours</p>
           <h1 id="settings-title">Settings</h1>
-          <p className="muted">Local preferences are stored inside the encrypted database.</p>
+          <p className="muted">Local preferences, all encrypted and kept on this Mac.</p>
         </div>
         <Button onClick={onLock} disabled={busy}>
           Lock now

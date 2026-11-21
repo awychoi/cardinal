@@ -4,6 +4,7 @@ import { friendlyError } from "../../lib/bridge/errors";
 import { Button } from "../../components/Button";
 import { BrandLogo } from "../../components/BrandLogo";
 import { MakerLine } from "../../components/MadeBy";
+import { brandMarkFor } from "../../brand/logos";
 import { RestoreBackupFlow } from "../settings/RestoreBackupFlow";
 import type { ThemeMode } from "../../theme/schema";
 
@@ -108,6 +109,34 @@ export function VaultGate({
 
   return (
     <main className="vault-gate" aria-labelledby="vault-title">
+      <aside className="vault-scene" aria-hidden="true">
+        <div className="vault-scene-orbit">
+          <span className="vault-scene-ring vault-scene-ring-a" />
+          <span className="vault-scene-ring vault-scene-ring-b" />
+          <img src={brandMarkFor(mode)} alt="" draggable={false} />
+        </div>
+        <p className="vault-scene-kicker">Wealth, in focus</p>
+        <p className="vault-scene-title">
+          Own and owe,
+          <br />
+          without the noise.
+        </p>
+        <p className="vault-scene-copy">
+          Bank accounts and cards, cash and debt, this month and the bigger picture — one quiet,
+          encrypted ledger on this Mac.
+        </p>
+        <ul className="vault-principles">
+          <li>
+            <span>01</span> Bank accounts and cards as equals
+          </li>
+          <li>
+            <span>02</span> Curated numbers, deeper on demand
+          </li>
+          <li>
+            <span>03</span> No account, no cloud, no telemetry
+          </li>
+        </ul>
+      </aside>
       <div className="vault-card">
         <div className="vault-brand">
           <BrandLogo mode={mode} />
@@ -117,8 +146,8 @@ export function VaultGate({
           <>
             <h1 id="vault-title">Your encrypted ledger is locked.</h1>
             <p className="muted">
-              Your accounts, balances, and spending by calendar month. The ledger is encrypted and
-              opens only with your passphrase.
+              Your accounts, balances, cash, and spending in one private view. The ledger is
+              encrypted and opens only with your passphrase.
             </p>
             <div className="vault-actions">
               <Button
@@ -163,10 +192,12 @@ export function VaultGate({
           <>
             <h1 id="vault-title">Create your encrypted ledger.</h1>
             <p className="muted">
-              First launch starts empty. You choose the passphrase; the app never stores it and
-              there is no recovery if you lose it.
+              First launch starts empty. Add a bank account or a card, choose the passphrase, and
+              keep the whole picture on this Mac. The app never stores it and there is no recovery
+              if you lose it.
             </p>
             <ul className="vault-facts">
+              <li>Cash and card balances side by side, with a real net position.</li>
               <li>SQLCipher database with an Argon2id-wrapped random key.</li>
               <li>Passphrase collected only by a native macOS sheet.</li>
               <li>No account, provider, or network is required to begin.</li>

@@ -39,9 +39,9 @@ Header parameters outside the bounds are rejected **before** Argon2 runs, so a t
 ### Passphrase policy
 
 - Exact input is preserved: no trim, no case folding, no Unicode normalization. Leading/trailing spaces count.
-- 1–1,024 characters. At least 16 characters, or a conservative estimate of ≥60 bits for shorter passphrases. No composition rules.
+- 1–1,024 characters. At least 16 characters, or a conservative estimate of ≥60 bits for shorter passphrases. The 16-character path is length-only: it does not reject repeated or all-whitespace input. No composition rules.
 - Spaces and long passphrases are allowed. No hints, security questions, "remember me", or Keychain unlock.
-- A short exponential delay follows repeated wrong passphrases. There is no permanent lockout (avoids DoS/data loss).
+- A short exponential delay follows repeated wrong passphrases. There is no permanent lockout (avoids DoS/data loss). The delay and the in-memory rate limiter reset on process restart.
 
 ## 2. `vault.header` format (format version 1)
 
@@ -83,6 +83,8 @@ Passphrase change uses a journal at `vault/rotation.journal`:
 
 Sequence: pre-change encrypted backup → write journal → `PRAGMA rekey` the live DB with the new raw DEK → update `vault_metadata.generation` → write new header/mirror → delete journal. On unlock, if the primary header fails but the journal header opens the DB and matches its metadata, the journal is finalized. If the primary header opens the DB, any journal is stale and removed. If neither opens it, fail closed and point at the pre-change backup.
 
+The rotation also writes `pre-rekey-<stamp>.cmdb` and `pre-rekey-<stamp>.vault-header` for crash recovery. They are **not removed on success**. The header unwraps the old DEK with the old passphrase, and the snapshot is encrypted with that old DEK; pre-migration snapshots from before the rotation are in the same position. A rotation therefore does not make the old passphrase useless against the vault directory. The incident runbook must tell the owner to delete these old-key recovery copies after a verified rotation.
+
 ## 3. SQLCipher activation and fail-closed rules
 
 Pinned provider: `rusqlite 0.37` with `bundled-sqlcipher-vendored-openssl` (libsqlite3-sys 0.35). The resolved SQLCipher version is recorded in the test output.
@@ -118,13 +120,13 @@ Lock triggers:
 
 - Manual **Lock Now** (app menu, `Cmd+L`, and a gateway command).
 - macOS screen lock (poll of `CGSessionCopyCurrentDictionary`'s `CGSSessionScreenIsLocked`).
-- Sleep (wall-clock vs monotonic gap and workspace notifications where available).
-- Fast user switching (console session resolution) and logout (`NSWorkspaceWillPowerOff` / session notifications).
+- Sleep (wall-clock versus monotonic gap; no workspace notification is registered).
+- Fast user switching (console-session polling). Logout and quit rely on process termination and the Tauri exit hook.
 - App quit (Tauri exit hook and window close when quitting).
-- Idle auto-lock in Rust: default 15 minutes, configurable 1–240 minutes; disabled only with a visible warning. Idle is computed from native HID activity (`CGEventSourceSecondsSinceLastEventType`), not renderer-reported activity.
+- Idle auto-lock in Rust: default 15 minutes, configurable 1–240 minutes; disabled only with a visible warning. Idle is computed from native HID activity (`CGEventSourceSecondsSinceLastEventType`), not renderer-reported activity. It is **system-wide** inactivity, not "no input in Cardinal": using another app still keeps the vault unlocked until macOS screen lock or sleep.
 - Hiding the window is **not** a lock; the idle timer continues while hidden.
 
-On lock: stop/cancel in-flight sync at a safe point without advancing the cursor, close the connection, drop and zeroize the DEK, emit a single `vault:locked` event to `main`, and the renderer clears all query caches, search/filter state, and sensitive views. The lock screen is shown before any data can be re-fetched. The renderer is never trusted to enforce the lock.
+On lock: close the connection, drop and zeroize the DEK, emit a single `vault:locked` event to `main`, and the renderer unmounts sensitive views. In-flight sync notices the lock at its next database boundary; an already-started provider request may finish but cannot write. Clearing the visible screen depends on the renderer receiving that event; the lock path does not hide the window or wipe the JS heap. The renderer is never trusted to enforce data access, but the event is a best-effort visual clear.
 
 ## 6. Database schema notes
 
@@ -173,12 +175,13 @@ Self-contained authenticated snapshot: 256-byte header + SQLCipher database byte
 - Service `com.awychoi.cardinal.plaid`; **one** generic-password item, `plaid-credentials-v1`, holds every app-managed secret: the Sandbox and Trial/Production client ID/secret pairs as separate keys (so environments cannot mix), and one access token key per connection.
 - Attributes: `kSecAttrSynchronizable=false`, and `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` on creation. **The item lives in the login (file-based) Keychain** — the build does not request the data-protection Keychain (`kSecUseDataProtectionKeychain`), so the accessibility class is not what protects it: the login keychain's lock state is. Moving the credentials to the data-protection Keychain is a separate change with its own migration.
 - The document item carries no label; its keys are the app's own account names (`plaid-client-id-production`, …) and one `plaid-access-token-<local UUID>` per connection — no account numbers or masks.
-- Tokens are loaded only for the duration of a Rust request and zeroized after use. They are never included in backups, exports, logs, errors, or renderer state.
-- **One item, one authorization.** macOS authorizes each Keychain item separately, so the item count is the number of approvals a rebuild needs. Keeping every secret in one item means one approval regardless of account or connection count; adding a connection rewrites the item instead of creating one.
+- Tokens are loaded only for the duration of a Rust request and wrapped in zeroizing types. Transient copies (the Keychain JSON document, HTTP response bodies, and SQLCipher's key schedule) are best-effort, not guaranteed to be scrubbed. They are never included in backups, exports, logs, errors, or renderer state.
+- **One item, one authorization.** macOS authorizes each Keychain item separately, so the item count is the number of approvals a rebuild needs. Keeping every secret in one item means one approval regardless of account or connection count; adding a connection rewrites the item instead of creating one. The tradeoff is blast radius: one "Always Allow" grant covers every provider secret.
+- Because this is a login-keychain item, do not claim `WhenUnlockedThisDeviceOnly` backup-exclusion semantics. The item is part of the login keychain's normal lifecycle and backup behavior; the effective protection is the login keychain's lock state and the code-signature ACL.
 - **The document is validated and fails closed.** `{"v":1,"items":{"<account>":"<secret>"}}` — a malformed document, unknown version, more than 32 entries, or an empty key/value is a `keychain` error, never an empty credential set.
 - **Reads are memoized for one unlocked session** (`DocumentStore`). A launch sync, a manual sync, and the settings panel read the same document once; the cache is dropped on lock, on unlock, and on every write or delete, so a replaced or revoked credential is never served stale. It holds `SecretString` values in Rust memory only — the same lifetime and exposure the session already has for the DEK.
 - **Migration from the one-item-per-account layout is one-shot and loss-proof.** The old items are read, written into the document, and only then deleted; a denied prompt or failed write leaves them untouched, so migration cannot lose a token. Stale copies left by a denial are ignored afterwards.
-- **Authorization is still bound to the code signature.** The build is ad-hoc signed, so an "Always Allow" grant expires with the next rebuild.
+- **Authorization is bound to the code signature.** The executable is linker-signed ad-hoc and the bundle is not bundle-signed by the default build, so an "Always Allow" grant expires with the next rebuild. A stable self-signed identity avoids the churn but makes the grant persistent for that signing identity.
 - A restored connection can keep its Keychain token only when the restored ledger carries the same random `credential_ref` and a token exists for it on this Mac. Cross-vault reuse is explicit; a token never travels with a backup, so this cannot extend provider access to another machine.
 - Disconnect removes that connection's token key from the document (deleting the item when it becomes empty). A local disconnect does not silently revoke a remote Plaid Item; remote removal requires explicit confirmation. A Keychain failure fails closed for that provider operation while the offline ledger remains usable.
 
@@ -195,7 +198,7 @@ Self-contained authenticated snapshot: 256-byte header + SQLCipher database byte
 
 - One custom Tauri command, `gateway`, carrying a versioned, internally tagged request enum. Each variant has `deny_unknown_fields`, explicit bounds, and typed response data. There is no generic SQL, file, URL, shell, or HTTP command.
 - Every call checks `webview.label() == "main"` and an origin allowlist. Events are emitted only to `main`.
-- Sensitive operations are rate-limited (native unlock attempts, backup/restore/export, delete-all, Plaid calls). A failed unlock applies an increasing delay. All limits reset only on success or lock, not by renderer request.
+- Sensitive operations are rate-limited (native unlock attempts, backup/restore/export, delete-all, Plaid calls). A failed unlock applies an increasing delay. Limits are in-memory and reset on process restart, and so does the failure counter; they also count cancelled prompts. They throttle casual interactive attempts, not an offline attack on a copied vault.
 - Errors are `{code, message}` with static, sanitized messages. No SQL, paths, tokens, account numbers, or provider payloads.
 - The mock bridge is TypeScript-only, behind `import.meta.env.DEV` plus a test flag, and cannot be selected in a release build. Rust is authoritative; the TypeScript client validates the contract on its side.
 - The renderer stores no financial data or secrets in localStorage, sessionStorage, IndexedDB, Cache API, service workers, or URLs. The one persisted renderer value is the non-sensitive theme id (`cardinal.theme`), used only so the opening and locked screens render in the last theme before the encrypted settings are available. On lock it unmounts sensitive views and clears caches.
@@ -206,7 +209,7 @@ Self-contained authenticated snapshot: 256-byte header + SQLCipher database byte
 - A separate dev CSP allows only the loopback Vite server and HMR socket.
 - One capability, `main-window`, scoped to the `main` window, with only core event permissions. No fs/shell/http/opener/sql/store/process/updater/deep-link/dialog/clipboard/websocket/upload permissions are granted to the renderer. The Rust-side opener plugin is reachable only through the verified Plaid command and the fixed maker-link command.
 - `freezePrototype: true`, `withGlobalTauri: false`, asset protocol disabled, devtools disabled, drag-and-drop disabled, navigation restricted to the app origin, new windows denied.
-- `set_content_protected(true)` on the main window; state restoration disabled; no financial data in titles, menus, notifications, or saved state.
+- `set_content_protected(true)` on the main window; state restoration disabled; no financial data in titles, menus, notifications, or saved state. This is best-effort: on macOS 15.4+ ScreenCaptureKit-based capture can ignore the legacy sharing-none attribute.
 - No `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`, remote assets, or Markdown-to-HTML. Provider/CSV text is rendered as text with control/bidi characters stripped for display.
 
 ## 12. Logging and crash hygiene

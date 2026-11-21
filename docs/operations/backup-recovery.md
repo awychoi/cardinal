@@ -55,6 +55,13 @@ Automatic backups are unchanged and require an unlocked session:
 - A pre-restore backup is created immediately before replacing an existing vault.
 - A pre-change backup is created before a passphrase/DEK rotation.
 
+A successful rotation also leaves `pre-rekey-<stamp>.cmdb` and
+`pre-rekey-<stamp>.vault-header` in the vault directory, plus older `pre-migration-*.cmdb`
+snapshots. They are encrypted with the old data key and the copied header unwraps that key with the
+old passphrase; nothing removes them on success. After verifying the new passphrase, delete those
+old-key recovery copies from the vault directory, along with old `.cmbak` backups that still use
+the old passphrase.
+
 ## 3. Restore
 
 Restore is explicit and validated on a staged copy before the live vault is

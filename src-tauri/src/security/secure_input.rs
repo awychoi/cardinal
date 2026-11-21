@@ -105,14 +105,14 @@ fn spec(purpose: SecurePurpose) -> PromptSpec {
         },
         SecurePurpose::PlaidSetupSandbox => PromptSpec {
             title: "Plaid Sandbox credentials",
-            message: "Enter the Plaid client ID and Sandbox secret. They are stored only in the macOS Keychain (WhenUnlockedThisDeviceOnly, not synchronized), never in the ledger, logs, renderer, or exports. Sandbox Items contain test data only.",
+            message: "Enter the Plaid client ID and Sandbox secret. They are stored only in the macOS login Keychain (code-signature protected, not synchronized), never in the ledger, logs, renderer, or exports. Sandbox Items contain test data only.",
             labels: &["Client ID", "Sandbox secret"],
             action: "Save credentials",
             cancel: "Cancel",
         },
         SecurePurpose::PlaidSetupProduction => PromptSpec {
             title: "Plaid Trial / Production credentials",
-            message: "Enter the Production client ID and secret from your Plaid Trial plan. These create real Items at real institutions, and their account data is imported into this ledger. They are stored only in the macOS Keychain (WhenUnlockedThisDeviceOnly, not synchronized), never in the ledger, logs, renderer, or exports.",
+            message: "Enter the Production client ID and secret from your Plaid Trial plan. These create real Items at real institutions, and their account data is imported into this ledger. They are stored only in the macOS login Keychain (code-signature protected, not synchronized), never in the ledger, logs, renderer, or exports.",
             labels: &["Production client ID", "Production secret"],
             action: "Save credentials",
             cancel: "Cancel",

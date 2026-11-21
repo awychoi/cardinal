@@ -42,9 +42,12 @@ them.
 3. Select **Sandbox** or **Trial / Production**.
 4. Click **Add … credentials…** and enter the Client ID and matching secret in the native AppKit
    sheet.
-   - Each environment has separate generic-password Keychain items under service
-     `com.awychoi.cardinal.plaid`.
-   - `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`; `kSecAttrSynchronizable=false`.
+   - One generic-password Keychain item under service `com.awychoi.cardinal.plaid` holds the
+     Sandbox and Production client ID/secret pairs plus one access-token key per connection.
+   - The item lives in the login (file-based) Keychain; `kSecAttrSynchronizable=false`.
+     `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` is set but is not the effective protection — the
+     login keychain's lock state and the app's code-signature ACL are. It is not a data-protection
+     Keychain item and does not have `ThisDeviceOnly` backup semantics.
    - Never stored in SQLCipher, settings, exports, logs, URLs, or renderer state.
    - Sandbox and Production secrets are never mixed. Each connection records its environment.
 5. Optionally click **Test credentials** to verify that environment's Keychain credentials against
@@ -168,8 +171,8 @@ removed; only `/item/remove` stops subscription billing.
 
 ### Both environments
 
-- [ ] Native credential sheet saves for the selected environment; Keychain item uses the attributes
-      above and is distinct from the other environment.
+- [ ] Native credential sheet saves for the selected environment; the consolidated login-Keychain
+      item uses the documented attributes and keeps each environment's keys separate.
 - [ ] Hosted Link opens; no URL/token appears in app UI/logs.
 - [ ] Transactions Sync imports transactions; repeat sync is idempotent; cursor persists.
 - [ ] Balances appear; missing values are not fabricated as $0.00.

@@ -2,7 +2,9 @@
 
 Cardinal is a local, single-user, encrypted macOS app. It is not a hosted service and has no server component. This document states what the app protects, what it does not, and what to do when something goes wrong.
 
-**No system is watertight.** This is an ad-hoc-signed local build on a general-purpose operating system. Read the residual risks in §7 before relying on it.
+**No system is watertight.** This is a locally built app whose executable is linker-signed ad hoc
+and whose bundle is not signed by default, on a general-purpose operating system. Read the residual
+risks in §7 before relying on it.
 
 ## 1. What protects the data
 
@@ -12,27 +14,28 @@ Cardinal is a local, single-user, encrypted macOS app. It is not a hosted servic
 | Key hierarchy | Argon2id-derived KEK wraps the DEK with XChaCha20-Poly1305; wrapped DEK lives in an authenticated external header |
 | Passphrase entry | Native AppKit `NSSecureTextField` sheet; the renderer never receives the passphrase |
 | Renderer boundary | One Tauri window, one capability, typed command gateway, strict CSP with no HTTPS source, blocked navigation/new windows, devtools off |
-| Lock lifecycle | Manual Lock Now, screen lock, sleep, fast user switching, logout, quit, and idle timeout (default 15 minutes) close the DB and zeroize keys |
-| Provider secrets | macOS Keychain only (`WhenUnlockedThisDeviceOnly`, non-synchronizable); never in the ledger, backups, exports, logs, or renderer |
+| Lock lifecycle | Manual Lock Now, screen lock, sleep, fast user switching, quit, and idle timeout (default 15 minutes) close the DB and zeroize the DEK. Visible-screen clearing is a renderer event, not a native guarantee. |
+| Provider secrets | macOS login Keychain (file-based, non-synchronizable, code-signature ACL); never in the ledger, backups, exports, logs, or renderer. The `WhenUnlockedThisDeviceOnly` attribute is set but is not what protects the item — see architecture §8. |
 | Backups | Self-contained authenticated containers (encrypted DB + wrapped DEK header); restore always asks for the passphrase |
 | Files | 0700 directories, 0600 files, symlink rejection, atomic writes |
-| Network | Rust-only client, TLS verification, HTTPS-only, no redirects, exact `*.plaid.com` allowlist, response caps; the renderer has no network source at all |
-| Audit trail | Encrypted `security_events` (unlock failures, lock, backup/restore/export, rekey, credential changes, integrity failure, single-instance rejection) |
-| Repository hygiene | gitleaks pre-commit + full-history CI; tracked vault/backup/export and key/credential files refused even if force-added |
+| Network | Rust-only client, TLS verification, HTTPS-only, no redirects, exact `sandbox.plaid.com`/`production.plaid.com` allowlist, response caps; the renderer has no network source at all |
+| Audit trail | Encrypted `security_events` (unlock failures recorded on the next successful unlock, lock, backup, restore success, export, rekey, credential changes). Owner-monitoring only; not tamper-evident, and some declared event types are not emitted today. |
+| Repository hygiene | gitleaks pre-commit + full-history CI; default vault/backup/export and key/credential patterns refused even if force-added; some internal rotation artifacts are not yet covered (see assessment F11) |
 
 ## 2. What the app does not protect against
 
 - A compromised macOS account or root/kernel attacker can read the unlocked process. `mlock` and zeroization are best-effort.
-- Screen capture is not fully preventable. Content protection blocks the standard path; cameras, some remote-support tools, or a compromised window server may not be blocked.
+- Screen capture is not preventable. Content protection (`NSWindowSharingType.None`) is best-effort; on macOS 15.4+ ScreenCaptureKit-based capture can ignore it. Cameras, remote-support tools, or a compromised window server are not covered.
 - A weak or reused passphrase defeats Argon2id. A lost passphrase and lost header are unrecoverable without a backup whose passphrase is known.
 - Old backups remain decryptable with the old passphrase after a rotation until deleted.
 - Exported CSV is plaintext once written. Cloud sync/copies are outside the app.
 - A compromised renderer can still invoke allowed commands and ask the user to unlock; native input prevents silent passphrase capture, not post-unlock abuse.
-- TLS depends on the macOS trust store/proxy; there is no certificate pinning.
+- TLS uses rustls with bundled WebPKI roots and `no_proxy`, not the macOS trust store or system proxy; there is no certificate pinning.
 - A full rollback of both `vault.header` and the database to an older consistent pair is not detectable without external monotonic state.
 - Hosted Link places a short-lived bearer URL in the default browser; browser history/extensions are outside the app's control.
 - Crypto-erasure is logical, not physical. SSD wear-leveling and copies outside the app remain.
 - There is no auto-update, notarization, hardened runtime, App Sandbox, hardware-backed key, Touch ID unlock, or MFA.
+- The default `pnpm tauri:build` output is linker-signed but not bundle-signed: `codesign --verify --deep --strict` fails until the bundle is signed. See the [2026-11-21 assessment](docs/security/assessment-2026-11-21.md).
 
 The architecture is in [security architecture](docs/security/architecture.md). The retired design
 review and decision log are preserved in the local archive and Git history.
@@ -102,6 +105,12 @@ the local archive.
 A repository secret audit on 2026-11-21 covered tracked files, full Git history, unreachable
 objects, build outputs, and local caches; it found no live credentials. The only scanner hits were
 generic-API-key false positives in vendored crates and build artifacts under ignored directories.
+
+A code-level security assessment on 2026-11-21 reviewed the vault, lock, Keychain, backup/restore,
+IPC, build, and dependency paths. It found the cryptographic core and renderer boundary sound, and
+recorded the remaining issues (bundle signing, Keychain claims, old-key material after rotation,
+lock-screen clearing, audit coverage, and dependency advisories) in the
+[assessment](docs/security/assessment-2026-11-21.md).
 
 ## 7. Residual risks (summary)
 

@@ -7,7 +7,7 @@ User-facing guides for Cardinal.
 | I want to… | Read |
 |---|---|
 | run, build, or package the app | [README.md](../README.md) |
-| understand the security posture | [SECURITY.md](../SECURITY.md), [security/architecture.md](security/architecture.md), [security/threat-model.md](security/threat-model.md) |
+| understand the security posture | [SECURITY.md](../SECURITY.md), [security/architecture.md](security/architecture.md), [security/threat-model.md](security/threat-model.md), [security/assessment-2026-11-21.md](security/assessment-2026-11-21.md) |
 | respond to a security incident | [security/incident-runbook.md](security/incident-runbook.md) |
 | connect a bank with Plaid | [integrations/plaid-guide.md](integrations/plaid-guide.md) |
 | back up, restore, or rotate a vault | [operations/backup-recovery.md](operations/backup-recovery.md) |

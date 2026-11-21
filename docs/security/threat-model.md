@@ -17,7 +17,7 @@ A single-user, local-first macOS desktop application for one person's credit-car
 | Plaid client secret | Mints link tokens and exchanges public tokens | macOS Keychain only |
 | Hosted Link URL and link token | Short-lived bearer material during linking | Rust memory; the URL is passed to the system browser and may remain in browser history |
 | CSV exports and backup containers | Copies outside the app's control | Owner-chosen filesystem locations |
-| Security event history | Detect repeated unlock failures, unexpected exports, integrity failures | Encrypted database |
+| Security event history | Detect repeated unlock failures, unexpected exports, lock/backup/restore/rekey events | Encrypted database; informational, not tamper-evident |
 
 ## 3. Adversaries
 
@@ -64,7 +64,7 @@ UNTRUSTED                         VALIDATED BOUNDARY                  TRUSTED (m
 - The app is single-user and local; there is no multi-tenant boundary.
 - Plaid responses are authenticated by TLS but still parsed and bounded as untrusted input.
 - macOS Keychain and code-signing APIs behave as documented.
-- The build is local, ad-hoc signed, and not distribution-ready.
+- The build is local, linker-signed ad-hoc, not bundle-signed by default, and not distribution-ready.
 
 ## 6. Controls mapped to assets
 
@@ -72,12 +72,12 @@ UNTRUSTED                         VALIDATED BOUNDARY                  TRUSTED (m
 | --- | --- |
 | Stolen disk/backup | SQLCipher raw-key DB with Argon2id-wrapped DEK; authenticated header; encrypted backups; strong-passphrase policy |
 | Passphrase captured by renderer compromise | Native secure input; passphrase never in renderer, IPC, logs, URL, localStorage, or Keychain |
-| Token/secret leak | Keychain only (`WhenUnlockedThisDeviceOnly`, non-synchronizable); Rust-only network; redaction; secret-sentinel tests |
+| Token/secret leak | macOS login Keychain (file-based; non-synchronizable; code-signature ACL; `WhenUnlockedThisDeviceOnly` is set but not the effective protection); Rust-only network; redaction; secret-sentinel tests |
 | Restored backup binding local provider tokens | Tokens never enter backups; restored references are random UUIDs; cross-vault reuse is an explicit choice and only binds tokens already on this Mac; a missing or revoked token falls back to reconnect or a new link |
 | Plaintext ledger by misconfiguration | Fail-closed `cipher_version`/`cipher_provider`/`cipher_status`, key-first pragma, plaintext-header rejection, plain-SQLite negative test |
 | Renderer exfiltration / XSS | CSP with no HTTPS source, one capability, command allowlist, no remote assets, no HTML injection, blocked navigation/new windows |
 | Malicious import/export | Native dialogs, size/row/field caps, UTF-8-only streaming, duplicate review, formula-injection escaping, 0600 exports, no auto-open |
-| OS lifecycle exposure | Lock on screen lock/sleep/fast-user-switch/logout/quit/manual plus idle timeout; content protection; state restoration disabled |
+| OS lifecycle exposure | Lock on screen lock/sleep/fast-user-switch/quit/manual plus idle timeout; content protection (best-effort on macOS 15.4+); state restoration disabled |
 | Second instance corruption | Single-instance plugin before any database open |
 | Backup tampering | AEAD-authenticated header, DB length + SHA-256 bound as AAD, vault-ID/schema checks, read-only validation, atomic replacement |
 | Supply-chain compromise | Lockfiles/frozen installs, pinned toolchains, audits, explicit postinstall allowlist, official plugins only |

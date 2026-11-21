@@ -48,10 +48,12 @@ The display name and bundle are Cardinal. The bundle identifier is
 `com.awychoi.cardinal`. Backups written before the rename remain restorable; new backups use the
 Cardinal seal.
 
-The build is ad-hoc signed for local use only — not notarized, not App Sandboxed, not a
-distributable release. macOS will ask once per Keychain item after each rebuild; every Plaid secret
-lives in a single item, so that is one approval. If macOS complains about the signature, re-sign it
-ad hoc:
+The executable is linker-signed ad-hoc for local use only, but `pnpm tauri:build` does not
+bundle-sign the `.app`, so `codesign --verify --deep --strict` fails until you sign it. Use
+`scripts/local-signing.sh` for a stable self-signed local identity, or re-sign ad hoc as shown
+below. The bundle is not notarized, not App Sandboxed, and not a distributable release. macOS will
+ask once per Keychain item for an ad-hoc build; every Plaid secret lives in a single item, so that
+is one approval. If macOS complains about the signature, re-sign it ad hoc:
 
 ```bash
 codesign --force --deep --sign - src-tauri/target/release/bundle/macos/Cardinal.app
@@ -111,8 +113,8 @@ SSH private keys, `.netrc`, `.git-credentials`) even if force-added. CI
 Early and experimental. Interfaces, storage formats, and behavior can change. Plaid linking is
 verified in both Sandbox and Trial/Production — the production path with a real production Item
 (4 credit accounts, 2026-11-01); depository-account linking is not yet live-verified. Live
-reconnect/update mode remains unverified. The macOS build is ad-hoc signed and not
-distribution-ready.
+reconnect/update mode remains unverified. The macOS executable is linker-signed ad-hoc; the app
+bundle is not validly signed until you sign it, and it is not distribution-ready.
 
 ## License
 

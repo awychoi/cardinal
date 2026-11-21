@@ -11,8 +11,6 @@ User-facing guides for Cardinal.
 | respond to a security incident | [security/incident-runbook.md](security/incident-runbook.md) |
 | connect a bank with Plaid | [integrations/plaid-guide.md](integrations/plaid-guide.md) |
 | back up, restore, or rotate a vault | [operations/backup-recovery.md](operations/backup-recovery.md) |
-| use the workbench logo or banner | [design/brand/README.md](design/brand/README.md) |
-| understand the wealth interface and its data rules | [design/wealth-interface.md](design/wealth-interface.md) |
 
 ## Map
 
@@ -21,7 +19,7 @@ User-facing guides for Cardinal.
 | [`integrations/`](integrations) | Plaid setup and linking |
 | [`operations/`](operations) | Backup and recovery |
 | [`security/`](security) | Security architecture, threat model, incident runbook |
-| [`design/`](design) | README artwork, the workbench banner, the brand lockup, and the wealth-interface notes |
+| [`design/`](design) | App screenshots used by the README and the workbench banner |
 
 Plans, dated reviews, implementation logs, reference decisions, the data dictionary, the test
 plan, the older brand and theming boards, and local-signing notes are retired to the local,

@@ -1,14 +1,12 @@
-![Cardinal — local-first, encrypted personal finance for macOS](docs/design/brand/hero/github-social-preview.png)
-
 # Cardinal
 
-A local-first, encrypted wealth manager for macOS. It brings bank accounts and credit cards into
-one quiet, bank-first balance sheet, tracks calendar-month spending, and keeps everything on the
-Mac — no account, no cloud, no telemetry.
+An open-source, local-first, encrypted wealth manager for macOS. It brings bank accounts and credit
+cards into one quiet, bank-first balance sheet, tracks calendar-month spending, and keeps everything
+on the Mac — no account, no cloud, no telemetry.
 
 Built with Tauri 2, React, TypeScript, Rust, and SQLCipher.
 
-![Cardinal overview in the Almanac theme, dark mode, showing net position, cash and card balances, a plain-language quick read, and upcoming card payments for synthetic demo data](docs/design/app-arcade-overview-dark.png)
+![Cardinal overview in the Arcade theme, dark mode, showing net position, cash and card balances, a plain-language quick read, and upcoming card payments for synthetic demo data](docs/design/app-arcade-overview-dark.png)
 
 ## What it does
 
@@ -107,7 +105,7 @@ SSH private keys, `.netrc`, `.git-credentials`) even if force-added. CI
 ## User guides
 
 - [Documentation map](docs/README.md)
-- [Wealth interface design notes](docs/design/wealth-interface.md)
+- [Architecture overview](ARCHITECTURE.md)
 - [Plaid setup and linking](docs/integrations/plaid-guide.md)
 - [Backup and recovery](docs/operations/backup-recovery.md)
 - [Security architecture](docs/security/architecture.md) · [threat model](docs/security/threat-model.md) · [incident runbook](docs/security/incident-runbook.md)

@@ -6,8 +6,15 @@ import { barScale } from "./chartMath";
 import "./charts.css";
 
 function statusFor(month: MonthTotal, currentMonth: string): string {
+  // A zero-filled calendar month has no ledger rows, so it is not evidence of
+  // confirmed $0.00 spending. "No data" is the honest status.
+  if (month.count === 0) return "No data";
   if (month.month === currentMonth) return "So far";
   return month.month > currentMonth ? "Upcoming" : "Complete";
+}
+
+function monthValue(month: MonthTotal, currency: string): string {
+  return month.count === 0 ? "No data" : `${formatMoney(month.netMinor, currency)} net`;
 }
 
 /**
@@ -35,8 +42,10 @@ export function TrendBars({
       : `${title}, ${monthLabel(months[0].month)} to ${monthLabel(
           months[months.length - 1].month,
         )}: ${months
-          .map(
-            (month) => `${monthShortLabel(month.month)} ${formatMoney(month.netMinor, currency)}`,
+          .map((month) =>
+            month.count === 0
+              ? `${monthShortLabel(month.month)} no data`
+              : `${monthShortLabel(month.month)} ${formatMoney(month.netMinor, currency)}`,
           )
           .join(", ")}.`;
 
@@ -71,7 +80,7 @@ export function TrendBars({
                 <div
                   className={className}
                   key={month.month}
-                  title={`${monthLabel(month.month)}: ${formatMoney(month.netMinor, currency)} net`}
+                  title={`${monthLabel(month.month)}: ${monthValue(month, currency)}`}
                 >
                   {bar.heightPercent === 0 ? (
                     <span
@@ -115,9 +124,9 @@ export function TrendBars({
         columns={["Month", "Gross", "Refunds", "Net", "Rows", "Status"]}
         rows={months.map((month) => [
           monthLabel(month.month),
-          formatMoney(month.grossMinor, currency),
-          formatMoney(Math.abs(month.refundsMinor), currency),
-          formatMoney(month.netMinor, currency),
+          month.count === 0 ? "—" : formatMoney(month.grossMinor, currency),
+          month.count === 0 ? "—" : formatMoney(Math.abs(month.refundsMinor), currency),
+          month.count === 0 ? "—" : formatMoney(month.netMinor, currency),
           month.count,
           statusFor(month, currentMonth),
         ])}

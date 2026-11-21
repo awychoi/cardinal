@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { MonthTotal } from "../../../lib/bridge";
 import { TrendBars } from "./TrendBars";
@@ -86,5 +86,32 @@ describe("TrendBars", () => {
     rerender(<TrendBars months={[]} selectedMonth="2026-10" currentMonth="2026-10" />);
     expect(screen.getByText("No trend data yet.")).toBeInTheDocument();
     expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("labels a zero-filled month as no data instead of confirmed $0.00", () => {
+    const empty = { ...month("2026-09", 0), count: 0 };
+    const { container } = render(
+      <TrendBars
+        months={[empty, month("2026-10", 5_000, false)]}
+        selectedMonth="2026-10"
+        currentMonth="2026-10"
+      />,
+    );
+
+    const chart = screen.getByRole("img", { name: /monthly net spending/i });
+    expect(chart.getAttribute("aria-label")).toContain("Sep no data");
+    expect(chart.getAttribute("aria-label")).not.toContain("Sep $0.00");
+
+    const emptyColumn = container.querySelector(".trend-col");
+    expect(emptyColumn).toHaveAttribute("title", "September 2026: No data");
+    expect(container.querySelector(".trend-bar-zero")).toBeInTheDocument();
+
+    const table = screen.getByRole("table", {
+      name: /monthly gross, refunds, net, and rows/i,
+    });
+    expect(within(table).getByRole("cell", { name: "No data" })).toBeInTheDocument();
+    const emptyRow = within(table).getByRole("row", { name: /September 2026/ });
+    expect(within(emptyRow).queryByRole("cell", { name: "$0.00" })).not.toBeInTheDocument();
+    expect(within(emptyRow).getAllByRole("cell", { name: "—" }).length).toBe(3);
   });
 });

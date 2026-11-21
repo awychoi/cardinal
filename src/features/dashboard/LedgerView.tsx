@@ -807,14 +807,15 @@ export function LedgerView({
       ) : (
         <div className="table-wrap">
           <p className="muted">
-            Gross purchases, refunds, and net spend per supplier for {monthLabel(dashboard.month)}.
-            Click a supplier to inspect its ledger rows.
+            Gross purchases, refunds, and net spend per USD supplier for{" "}
+            {monthLabel(dashboard.month)}. Other currencies stay separate. Click a supplier to
+            inspect its ledger rows.
           </p>
           {dashboard.summary.suppliers.length === 0 ? (
             <p className="empty-row">No eligible spending in this month.</p>
           ) : (
             <table className="ledger-table suppliers-table">
-              <caption className="sr-only">Supplier totals</caption>
+              <caption className="sr-only">USD supplier totals</caption>
               <thead>
                 <tr>
                   <th scope="col">Supplier</th>
@@ -865,7 +866,7 @@ export function LedgerView({
             </table>
           )}
           <p className="fine-print">
-            Supplier totals reconcile exactly to the eligible ledger rows:{" "}
+            USD supplier totals reconcile exactly to the eligible USD ledger rows:{" "}
             {formatMoney(dashboard.summary.reconciliation.supplierNetMinor)}.
           </p>
         </div>

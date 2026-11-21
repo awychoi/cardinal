@@ -61,6 +61,15 @@ function accountTypeLabel(value: string): string {
 
 /** A short AT description for a glance tile: the visible numbers and state,
  * never a paragraph. The button name stays "Open activity for …". */
+function inclusionLabel(account: AccountCard): string {
+  if (account.currency !== "USD") {
+    return account.included
+      ? "other currency, outside USD totals"
+      : "other currency, excluded from USD totals";
+  }
+  return account.included ? "included in totals" : "excluded from totals";
+}
+
 function glanceDescription(account: AccountCard, due: UpcomingEntry | undefined): string {
   const parts = [
     account.currentBalanceMinor === null
@@ -72,7 +81,7 @@ function glanceDescription(account: AccountCard, due: UpcomingEntry | undefined)
   if (due) parts.push(`next payment ${formatDateShort(due.dueDate)}`);
   else if (!isDepositoryAccount(account.accountType)) parts.push("no due date reported");
   parts.push(connectionLabel(account.connectionStatus, account.sourceKind));
-  parts.push(account.included ? "included in totals" : "excluded from totals");
+  parts.push(inclusionLabel(account));
   return `${parts.join(". ")}.`;
 }
 
@@ -154,6 +163,12 @@ export function OverviewView({
   }, [dashboard.month, summary, trendEnabled, theme.options.overview.trendMonths]);
 
   const includedAccounts = overview.accounts.filter((account) => account.included);
+  const allCashAccounts = overview.accounts.filter((account) =>
+    isDepositoryAccount(account.accountType),
+  );
+  const allCardAccounts = overview.accounts.filter(
+    (account) => !isDepositoryAccount(account.accountType),
+  );
   const staleCount = includedAccounts.filter((account) => account.balanceStale).length;
   const errorConnections = includedAccounts.filter(
     (account) =>
@@ -182,7 +197,7 @@ export function OverviewView({
   if (errorConnections > 0) {
     attention.push({
       id: "connections",
-      title: `${errorConnections} connection${errorConnections === 1 ? "" : "s"} need attention`,
+      title: `${errorConnections} account${errorConnections === 1 ? "" : "s"} need attention`,
       detail: "Balances may be stale until the connection is repaired.",
       actionLabel: "Open connections",
       onAction: onOpenSettings,
@@ -272,60 +287,104 @@ export function OverviewView({
 
   const net = overview.balances.netPositionMinor;
   const hasKnownBalance = model.usdReportedCount > 0;
+  const usdScope = model.usdScope;
+  const cashScope = model.cashScope;
+  const cardScope = model.cardScope;
   const cashKnown = totalReported(model.cashStatus);
   const cardKnown = totalReported(model.cardStatus);
   const cashEmpty = model.cashStatus === "empty";
   const cardEmpty = model.cardStatus === "empty";
-  const cashText = cashEmpty
-    ? "No cash accounts"
-    : cashKnown
-      ? formatMoney(overview.balances.cashKnownTotalMinor)
-      : "Not reported";
-  const cardText = cardEmpty
-    ? "No cards tracked"
-    : cardKnown
-      ? formatMoney(overview.balances.cardKnownTotalMinor)
-      : "Not reported";
+  // A side covered only by excluded or other-currency accounts is not a known
+  // USD zero: show a dash and a scope note instead.
+  const cashCountable =
+    usdScope === "usd" &&
+    cashKnown &&
+    cashScope !== "all_excluded" &&
+    cashScope !== "other_currency_only";
+  const cardCountable =
+    usdScope === "usd" &&
+    cardKnown &&
+    cardScope !== "all_excluded" &&
+    cardScope !== "other_currency_only";
+  const cashText =
+    cashScope === "all_excluded" || cashScope === "other_currency_only"
+      ? "—"
+      : cashEmpty
+        ? "No cash accounts"
+        : cashKnown
+          ? formatMoney(overview.balances.cashKnownTotalMinor)
+          : "Not reported";
+  const cardText =
+    cardScope === "all_excluded" || cardScope === "other_currency_only"
+      ? "—"
+      : cardEmpty
+        ? "No cards tracked"
+        : cardKnown
+          ? formatMoney(overview.balances.cardKnownTotalMinor)
+          : "Not reported";
   const creditText =
     model.availableCreditMinor === null ? "Not reported" : formatMoney(model.availableCreditMinor);
   const usdAccountCount = model.usdCashCount + model.usdCardCount;
   const completeness =
-    model.netStatus === "empty"
-      ? "No USD balances yet"
-      : model.netStatus === "complete"
-        ? `Complete · all ${usdAccountCount} balance${usdAccountCount === 1 ? "" : "s"} reported`
-        : model.netStatus === "partial"
-          ? `Partial · ${model.usdMissingBalances} of ${usdAccountCount} balances not reported`
-          : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
+    usdScope === "all_excluded"
+      ? "All accounts are excluded from totals"
+      : usdScope === "other_currency_only"
+        ? "No USD accounts in your net position"
+        : model.netStatus === "complete"
+          ? `Complete · all ${usdAccountCount} balance${usdAccountCount === 1 ? "" : "s"} reported`
+          : model.netStatus === "partial"
+            ? `Partial · ${model.usdMissingBalances} of ${usdAccountCount} balances not reported`
+            : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
   const cashShare = model.cashShare;
   const debtShare = cashShare === null ? null : 100 - cashShare;
   const beamAria = [
-    cashKnown
+    cashCountable
       ? `Known cash ${formatMoney(overview.balances.cashKnownTotalMinor)}${
           cashShare === null ? "" : `, ${cashShare}% of known balances`
         }`
-      : "Cash not reported",
-    cardKnown
+      : cashScope === "other_currency_only"
+        ? "Cash in other currencies, outside USD totals"
+        : cashScope === "all_excluded"
+          ? "Cash excluded from totals"
+          : "Cash not reported",
+    cardCountable
       ? `card balances ${formatMoney(overview.balances.cardKnownTotalMinor)}${
           debtShare === null ? "" : `, ${debtShare}% of known balances`
         }`
-      : "card balances not reported",
+      : cardScope === "other_currency_only"
+        ? "card balances in other currencies, outside USD totals"
+        : cardScope === "all_excluded"
+          ? "card balances excluded from totals"
+          : "card balances not reported",
   ].join(" and ");
   const beamNote =
-    model.cashStatus === "not_reported" && model.cardStatus === "not_reported"
-      ? "Split needs reported balances"
-      : model.cashStatus === "not_reported"
-        ? "Split needs a cash balance"
-        : "Split needs card balances";
+    usdScope === "all_excluded"
+      ? "All accounts are excluded from totals"
+      : usdScope === "other_currency_only"
+        ? "Only other-currency accounts"
+        : model.cashStatus === "not_reported" && model.cardStatus === "not_reported"
+          ? "Split needs reported balances"
+          : model.cashStatus === "not_reported"
+            ? "Split needs a cash balance"
+            : "Split needs card balances";
   const beamTotalKnownZero =
-    cashKnown &&
-    cardKnown &&
+    usdScope === "usd" &&
+    cashCountable &&
+    cardCountable &&
     overview.balances.cashKnownTotalMinor + overview.balances.cardKnownTotalMinor === 0;
   const asOf = formatDateOnly(overview.upcoming.asOfDate);
-  const glanceCash = [...model.cashAccounts].sort(
+  const excludedCashCount = allCashAccounts.filter((account) => !account.included).length;
+  const excludedCardCount = allCardAccounts.filter((account) => !account.included).length;
+  const nonUsdCashCount = allCashAccounts.filter(
+    (account) => account.included && account.currency !== "USD",
+  ).length;
+  const nonUsdCardCount = allCardAccounts.filter(
+    (account) => account.included && account.currency !== "USD",
+  ).length;
+  const glanceCash = [...allCashAccounts].sort(
     (a, b) => (b.currentBalanceMinor ?? -1) - (a.currentBalanceMinor ?? -1),
   );
-  const glanceCards = [...model.cardAccounts].sort(
+  const glanceCards = [...allCardAccounts].sort(
     (a, b) => (b.currentBalanceMinor ?? -1) - (a.currentBalanceMinor ?? -1),
   );
   const cashPreview = glanceCash.slice(0, 2);
@@ -333,13 +392,17 @@ export function OverviewView({
   const hiddenCash = glanceCash.length - cashPreview.length;
   const hiddenCards = glanceCards.length - cardPreview.length;
   const paceCopy =
-    model.pacePercent === null
-      ? "Not enough posted activity for a typical month yet."
-      : model.pacePercent === 0
-        ? "Right on your typical active month."
-        : `${Math.abs(model.pacePercent)}% ${
-            model.pacePercent < 0 ? "below" : "above"
-          } your typical active month.`;
+    summary.eligibleCount === 0
+      ? dashboard.month === dashboard.currentMonth
+        ? "No posted spending this month."
+        : `No posted spending in ${monthLabel(dashboard.month)}.`
+      : model.pacePercent === null
+        ? "Not enough posted activity for a typical month yet."
+        : model.pacePercent === 0
+          ? "Right on your typical full active month."
+          : `${Math.abs(model.pacePercent)}% ${
+              model.pacePercent < 0 ? "below" : "above"
+            } your typical full active month.`;
 
   return (
     <section className="dashboard overview wealth-overview" aria-labelledby="overview-title">
@@ -415,7 +478,11 @@ export function OverviewView({
           </p>
           <p className="hero-story">
             {!hasKnownBalance
-              ? "No balances reported yet. Add an account or sync a bank to complete the picture."
+              ? usdScope === "all_excluded"
+                ? "All accounts are excluded from totals. Include an account to see a net position."
+                : usdScope === "other_currency_only"
+                  ? "Only other-currency accounts are included. USD totals need an account in USD."
+                  : "No USD balances reported yet. Add an account or sync a bank to complete the picture."
               : model.cashStatus === "not_reported"
                 ? `${formatMoney(
                     overview.balances.cardKnownTotalMinor,
@@ -437,14 +504,30 @@ export function OverviewView({
             <div className="wealth-beam-labels">
               <span
                 className="beam-label beam-label-cash"
-                title={cashKnown ? undefined : "Cash balance not reported"}
+                title={
+                  cashCountable
+                    ? undefined
+                    : cashScope === "all_excluded"
+                      ? "Cash accounts are excluded from totals"
+                      : cashScope === "other_currency_only"
+                        ? "Cash is outside the USD totals"
+                        : "Cash balance not reported"
+                }
               >
                 <span className="beam-dot" aria-hidden="true" />
                 Cash <strong>{cashText}</strong>
               </span>
               <span
                 className="beam-label beam-label-debt"
-                title={cardKnown ? undefined : "Card balances not reported"}
+                title={
+                  cardCountable
+                    ? undefined
+                    : cardScope === "all_excluded"
+                      ? "Card balances are excluded from totals"
+                      : cardScope === "other_currency_only"
+                        ? "Card balances are outside the USD totals"
+                        : "Card balances not reported"
+                }
               >
                 Card balances <strong>{cardText}</strong>
                 <span className="beam-dot" aria-hidden="true" />
@@ -455,7 +538,7 @@ export function OverviewView({
               role="img"
               aria-label={beamAria}
             >
-              {cashShare === null || debtShare === null ? (
+              {cashShare === null || debtShare === null || usdScope !== "usd" ? (
                 <span className="wealth-beam-note">{beamNote}</span>
               ) : beamTotalKnownZero ? (
                 <span className="wealth-beam-note">Known balances total $0.00</span>
@@ -487,9 +570,15 @@ export function OverviewView({
                 {cashText}
               </strong>
               <span className="hero-mini-note">
-                {cashEmpty
-                  ? "Add a bank account"
-                  : `${model.usdCashReportedCount} of ${model.usdCashCount} reported`}
+                {cashScope === "all_excluded"
+                  ? "All cash accounts excluded from totals"
+                  : cashScope === "other_currency_only"
+                    ? "Only other-currency cash accounts"
+                    : cashEmpty
+                      ? "Add a bank account"
+                      : `${model.usdCashReportedCount} of ${model.usdCashCount} reported${
+                          excludedCashCount > 0 ? ` · ${excludedCashCount} not in totals` : ""
+                        }${nonUsdCashCount > 0 ? ` · ${nonUsdCashCount} other currency` : ""}`}
               </span>
             </div>
             <div className="hero-mini">
@@ -498,20 +587,30 @@ export function OverviewView({
                 {cardText}
               </strong>
               <span className="hero-mini-note">
-                {cardEmpty
-                  ? "Add a card to track borrowing"
-                  : `${model.usdCardReportedCount} of ${model.usdCardCount} USD cards reported`}
+                {cardScope === "all_excluded"
+                  ? "All cards excluded from totals"
+                  : cardScope === "other_currency_only"
+                    ? "Only other-currency cards"
+                    : cardEmpty
+                      ? "Add a card to track borrowing"
+                      : `${model.usdCardReportedCount} of ${model.usdCardCount} USD cards reported${
+                          excludedCardCount > 0 ? ` · ${excludedCardCount} not in totals` : ""
+                        }${nonUsdCardCount > 0 ? ` · ${nonUsdCardCount} other currency` : ""}`}
               </span>
             </div>
             <div className="hero-mini">
-              <span className="hero-mini-label">Available credit</span>
+              <span className="hero-mini-label">Available credit · USD</span>
               <strong className={model.availableCreditMinor === null ? "is-unknown" : undefined}>
                 {creditText}
               </strong>
               <span className="hero-mini-note">
-                {model.utilizationPercent === null
-                  ? "No reported limits"
-                  : `${model.utilizationPercent}% used`}
+                {model.availableCreditMinor === null
+                  ? model.usdCardReportedCount === 0 && model.usdCardCount > 0
+                    ? "No card balances reported"
+                    : "No reported limits"
+                  : `${model.utilizationPercent ?? 0}% used${
+                      model.availableCreditPartial ? " · reported limits only" : ""
+                    }`}
               </span>
             </div>
           </div>
@@ -550,7 +649,7 @@ export function OverviewView({
             <div className="quick-read-signal-head">
               <span>{topSignal ? "Top category" : "Month signal"}</span>
               <span>
-                {topSignal ? `${topSignal.share}% of posted spending` : "No posted spending"}
+                {topSignal ? `${topSignal.share}% of gross spending` : "No posted spending"}
               </span>
             </div>
             {topSignal ? (
@@ -584,7 +683,7 @@ export function OverviewView({
               <button type="button" className="link-button" onClick={revealDetails}>
                 The numbers behind this →
               </button>
-              {attention.length === 0 ? (
+              {attention.length === 0 && hasKnownBalance ? (
                 <span className="quiet-status">
                   <span className="dot dot-success" aria-hidden="true" /> Everything reported looks
                   current
@@ -613,7 +712,9 @@ export function OverviewView({
                   Cash
                 </h3>
                 <span>
-                  {model.cashAccountCount} account{model.cashAccountCount === 1 ? "" : "s"}
+                  {glanceCash.length} account{glanceCash.length === 1 ? "" : "s"}
+                  {excludedCashCount > 0 ? ` · ${excludedCashCount} not in totals` : ""}
+                  {nonUsdCashCount > 0 ? ` · ${nonUsdCashCount} other currency` : ""}
                 </span>
               </div>
               {cashPreview.length > 0 ? (
@@ -644,6 +745,11 @@ export function OverviewView({
                             formatMoney(account.currentBalanceMinor, account.currency)
                           )}
                           {account.balanceStale ? <small>stale</small> : null}
+                          {!account.included ? (
+                            <small>not in totals</small>
+                          ) : account.currency !== "USD" ? (
+                            <small>outside USD totals</small>
+                          ) : null}
                         </span>
                         <span className="sr-only" id={`glance-cash-desc-${account.accountId}`}>
                           {glanceDescription(account, undefined)}
@@ -674,7 +780,9 @@ export function OverviewView({
                   Cards
                 </h3>
                 <span>
-                  {model.cardAccountCount} account{model.cardAccountCount === 1 ? "" : "s"}
+                  {glanceCards.length} account{glanceCards.length === 1 ? "" : "s"}
+                  {excludedCardCount > 0 ? ` · ${excludedCardCount} not in totals` : ""}
+                  {nonUsdCardCount > 0 ? ` · ${nonUsdCardCount} other currency` : ""}
                 </span>
               </div>
               {cardPreview.length > 0 ? (
@@ -712,6 +820,11 @@ export function OverviewView({
                               formatMoney(account.currentBalanceMinor, account.currency)
                             )}
                             {account.balanceStale ? <small>stale</small> : null}
+                            {!account.included ? (
+                              <small>not in totals</small>
+                            ) : account.currency !== "USD" ? (
+                              <small>outside USD totals</small>
+                            ) : null}
                           </span>
                           <span className="sr-only" id={`glance-card-desc-${account.accountId}`}>
                             {glanceDescription(account, due)}
@@ -765,7 +878,7 @@ export function OverviewView({
             ) : (
               <strong className="due-total">
                 {formatMoney(overview.upcoming.knownTotalMinor)}
-                <span className="due-total-currency">known</span>
+                <span className="due-total-currency">USD known minimums</span>
               </strong>
             )}
           </header>
@@ -855,10 +968,15 @@ export function OverviewView({
             <span>
               {model.cashAfterUpcomingMinor === null
                 ? "Cash after payments needs a reported cash balance."
-                : `Cash after these known amounts: ${formatMoney(model.cashAfterUpcomingMinor)}`}
+                : `${
+                    model.cashStatus === "partial" ? "Known cash" : "Cash"
+                  } after these USD known minimums: ${formatMoney(model.cashAfterUpcomingMinor)}`}
             </span>
-            {overview.upcoming.nonUsdEntryCount > 0 ? (
-              <span className="fine-print">Other currencies listed separately.</span>
+            {entries.length > 0 ? (
+              <span className="fine-print">
+                Only USD amounts with a known minimum reduce the cash-after estimate; unknown,
+                excluded, and other-currency values do not.
+              </span>
             ) : null}
           </div>
         </section>
@@ -892,7 +1010,11 @@ export function OverviewView({
           >
             <div className="trend-summary">
               <div className="trend-summary-lead">
-                <span>This month so far</span>
+                <span>
+                  {dashboard.month === dashboard.currentMonth
+                    ? "This month so far"
+                    : monthLabel(dashboard.month)}
+                </span>
                 <strong>{formatMoney(summary.netSpendingMinor)}</strong>
                 <small>{paceCopy}</small>
               </div>
@@ -1015,22 +1137,22 @@ export function OverviewView({
                   <dd>{formatMoney(summary.pendingSubtotalMinor)}</dd>
                 </div>
                 <div>
-                  <dt>Eligible rows</dt>
+                  <dt>Eligible rows · USD</dt>
                   <dd>{summary.eligibleCount}</dd>
                 </div>
                 <div>
-                  <dt>Pending rows</dt>
+                  <dt>Pending rows · all currencies</dt>
                   <dd>{summary.pendingCount}</dd>
                 </div>
                 <div>
-                  <dt>All rows</dt>
+                  <dt>All rows · all currencies</dt>
                   <dd>{summary.rowCount}</dd>
                 </div>
               </dl>
               <p className="fine-print month-reconcile">
                 {summary.reconciliation.exact
-                  ? "Supplier and category totals reconcile exactly to eligible spending."
-                  : "Supplier and category totals do not reconcile to eligible spending; review the ledger."}
+                  ? "USD supplier and category totals reconcile exactly to eligible spending."
+                  : "USD supplier and category totals do not reconcile to eligible spending; review the ledger."}
               </p>
             </section>
           </div>

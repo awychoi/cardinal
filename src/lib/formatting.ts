@@ -59,7 +59,11 @@ export function monthShortLabel(month: string): string {
 export function dueAmountLabel(kind: string, amountMinor: number | null, currency: string): string {
   switch (kind) {
     case "minimum_due":
-      return `${formatMoney(amountMinor ?? 0, currency)} minimum`;
+      // A minimum-due kind without an amount is a contract violation, not a
+      // known $0.00. Keep it unknown rather than inventing a zero.
+      return amountMinor === null
+        ? "amount not reported"
+        : `${formatMoney(amountMinor, currency)} minimum`;
     case "reported_zero":
       return `${formatMoney(0, currency)} reported`;
     case "not_reported":

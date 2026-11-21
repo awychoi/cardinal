@@ -32,6 +32,14 @@ export function dashboardWithAccounts(accounts: AccountCard[]): Dashboard {
     nonUsdEntryCount: 0,
     complete: true,
   };
+  const otherCurrency = included
+    .filter(
+      (account) =>
+        !isDepositoryAccount(account.accountType) &&
+        account.currency !== "USD" &&
+        account.currentBalanceMinor !== null,
+    )
+    .map((account) => [account.currency, account.currentBalanceMinor ?? 0] as [string, number]);
 
   return {
     ...base,
@@ -51,7 +59,7 @@ export function dashboardWithAccounts(accounts: AccountCard[]): Dashboard {
           cards.length + cash.length > 0 &&
           cardReported.length === cards.length &&
           cashReported.length === cash.length,
-        otherCurrency: [],
+        otherCurrency,
       },
       upcoming,
     },

@@ -129,6 +129,29 @@ fn account_validation_rejects_bad_fields() {
 }
 
 #[test]
+fn account_update_cannot_change_currency() {
+    let (_tmp, state) = setup();
+    let mut euro = input("Euro Card");
+    euro.currency = "EUR".into();
+    let created = state
+        .with_db(|conn, _h, _s| create_manual(conn, &euro))
+        .unwrap();
+    assert_eq!(created.currency, "EUR");
+
+    let mut re_denominated = input("Euro Card");
+    re_denominated.currency = "USD".into();
+    let error = state
+        .with_db(|conn, _h, _s| update_manual(conn, &created.id, &re_denominated))
+        .unwrap_err();
+    assert!(matches!(error, AppError::InvalidInput("currency")));
+
+    let stored = state
+        .with_db(|conn, _h, _s| get(conn, &created.id))
+        .unwrap();
+    assert_eq!(stored.currency, "EUR");
+}
+
+#[test]
 fn account_text_is_cleaned_and_bounded() {
     let (_tmp, state) = setup();
     let mut with_controls = input("Card\u{0007}Name");

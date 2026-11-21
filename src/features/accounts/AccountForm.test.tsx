@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { Account } from "../../lib/bridge";
 import { AccountForm } from "./AccountForm";
 
 function renderForm() {
@@ -8,6 +9,21 @@ function renderForm() {
   render(<AccountForm submitLabel="Add account" onSubmit={onSubmit} />);
   return { onSubmit };
 }
+
+const EUR_ACCOUNT: Account = {
+  id: "aaaaaaaa-0000-4000-8000-000000000007",
+  issuer: "Demo Bank",
+  displayName: "Euro Travel (demo)",
+  lastFour: "9901",
+  accountType: "credit_card",
+  currency: "EUR",
+  creditLimitMinor: 1_000_000,
+  includeInOverview: true,
+  archived: false,
+  sourceKind: "demo",
+  createdAt: "2026-10-01T00:00:00Z",
+  updatedAt: "2026-10-01T00:00:00Z",
+};
 
 describe("AccountForm validation", () => {
   it("shows human field errors, a summary, and focuses the first invalid field", async () => {
@@ -86,7 +102,23 @@ describe("AccountForm validation", () => {
       issuer: "Chase",
       displayName: "Sapphire Reserve",
       lastFour: "1234",
+      currency: "USD",
     });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("preserves the existing currency when editing a non-USD account", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<AccountForm initial={EUR_ACCOUNT} submitLabel="Save changes" onSubmit={onSubmit} />);
+
+    expect(screen.getByLabelText("Currency")).toHaveValue("EUR");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      displayName: "Euro Travel (demo)",
+      currency: "EUR",
+    });
   });
 });

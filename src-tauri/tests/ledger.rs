@@ -449,6 +449,70 @@ fn month_boundary_uses_authorization_date_and_historical_month_is_independent() 
 }
 
 #[test]
+fn manual_credit_limit_fills_a_missing_snapshot_limit() {
+    let (_tmp, state) = setup();
+    let card_id = account(&state, "Manual Limit Card", "USD");
+    let today = NaiveDate::from_ymd_opt(2026, 10, 23).unwrap();
+
+    // The account row already carries the manually entered limit even before
+    // any balance snapshot exists.
+    let view = state.with_db(|conn, _h, _s| overview(conn, today)).unwrap();
+    let card = view
+        .accounts
+        .iter()
+        .find(|account| account.account_id == card_id)
+        .unwrap();
+    assert_eq!(card.current_balance_minor, None);
+    assert_eq!(card.credit_limit_minor, Some(500_000));
+
+    // A snapshot with no limit of its own falls back to the account limit.
+    state
+        .with_db(|conn, _h, _s| {
+            conn.execute(
+                "INSERT INTO balance_snapshots (id, account_id, current_balance_minor, available_credit_minor, \
+                    credit_limit_minor, currency, retrieved_at, provider_as_of, provenance, source_connection_id) \
+                 VALUES (?1, ?2, 12_345, NULL, NULL, 'USD', '2026-10-23T10:00:00Z', NULL, 'manual', NULL)",
+                rusqlite::params![uuid::Uuid::new_v4().to_string(), card_id],
+            )
+            .map_err(|_| cardinal_lib::error::AppError::Database)?;
+            Ok(())
+        })
+        .unwrap();
+    let view = state.with_db(|conn, _h, _s| overview(conn, today)).unwrap();
+    let card = view
+        .accounts
+        .iter()
+        .find(|account| account.account_id == card_id)
+        .unwrap();
+    assert_eq!(card.current_balance_minor, Some(12_345));
+    assert_eq!(card.credit_limit_minor, Some(500_000));
+    assert_eq!(card.available_credit_minor, None);
+
+    // A provider-reported snapshot limit still wins over the account column;
+    // sync owns that value.
+    state
+        .with_db(|conn, _h, _s| {
+            conn.execute(
+                "INSERT INTO balance_snapshots (id, account_id, current_balance_minor, available_credit_minor, \
+                    credit_limit_minor, currency, retrieved_at, provider_as_of, provenance, source_connection_id) \
+                 VALUES (?1, ?2, 100_000, 700_000, 800_000, 'USD', '2026-10-23T11:00:00Z', NULL, 'provider', NULL)",
+                rusqlite::params![uuid::Uuid::new_v4().to_string(), card_id],
+            )
+            .map_err(|_| cardinal_lib::error::AppError::Database)?;
+            Ok(())
+        })
+        .unwrap();
+    let view = state.with_db(|conn, _h, _s| overview(conn, today)).unwrap();
+    let card = view
+        .accounts
+        .iter()
+        .find(|account| account.account_id == card_id)
+        .unwrap();
+    assert_eq!(card.credit_limit_minor, Some(800_000));
+    assert_eq!(card.available_credit_minor, Some(700_000));
+}
+
+#[test]
 fn pending_is_separate_and_posted_replacement_does_not_double_count() {
     let (_tmp, state) = setup();
     let account = account(&state, "Pending Card", "USD");

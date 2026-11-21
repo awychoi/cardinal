@@ -137,7 +137,7 @@ test.describe("read-only dashboard (browser mock)", () => {
     await page.getByRole("button", { name: "Transactions", exact: true }).click();
     await page.getByRole("button", { name: "By supplier" }).click();
     await expect(page.getByRole("heading", { name: "By supplier" })).toBeVisible();
-    await expect(page.getByText(/Supplier totals reconcile exactly/)).toBeVisible();
+    await expect(page.getByText(/USD supplier totals reconcile exactly/)).toBeVisible();
     const firstSupplier = page.getByRole("row").nth(1);
     await firstSupplier.click();
     await expect(page.getByRole("heading", { name: "Transactions" })).toBeVisible();
@@ -180,6 +180,9 @@ test.describe("read-only dashboard (browser mock)", () => {
       .getAttribute("aria-label");
     await page.getByRole("button", { name: "Previous month" }).click();
     await expect(page.locator(".month-label")).toHaveText("September 2026");
+    await expect(page.getByText("This month so far")).toHaveCount(0);
+    await expect(page.locator(".trend-summary-lead")).toContainText("September 2026");
+    await expect(page.locator(".trend-summary-lead")).not.toContainText(/so far/i);
     await expect(page.getByRole("img", { name: /Monthly net spending/i })).toHaveAttribute(
       "aria-label",
       /September 2026/,

@@ -34,7 +34,7 @@ test.describe("wealth view (browser mock)", () => {
     await summary.click();
     await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
     await expect(page.getByText("Last checked")).toBeVisible();
-    await expect(page.getByText(/Supplier and category totals reconcile/)).toBeVisible();
+    await expect(page.getByText(/USD supplier and category totals reconcile/)).toBeVisible();
   });
 
   test("keeps status pills inside credit cards in the top-bar layout at 1100", async ({ page }) => {

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App";
 import { __resetMockBridge, __setMockSettings, __setMockVaultState } from "../mocks/bridge";
+import { archiveMockAccount, createMockAccount, mockAccounts, mockDashboard } from "../mocks/data";
 
 async function unlock() {
   const user = userEvent.setup();
@@ -95,6 +96,74 @@ describe("app shell", () => {
     await user.click(toggle);
     await waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
     expect(Object.keys(window.localStorage)).toEqual(["cardinal.theme"]);
+  });
+
+  it("describes other-currency-only accounts without a false empty or zero state", async () => {
+    for (const account of mockAccounts()) archiveMockAccount(account.id, true);
+    createMockAccount({
+      issuer: "Local Bank",
+      displayName: "Euro Checking",
+      lastFour: null,
+      accountType: "checking",
+      currency: "EUR",
+      creditLimit: null,
+      currentBalance: "1250.00",
+      includeInOverview: true,
+    });
+
+    await unlock();
+    const side = document.querySelector(".side-net") as HTMLElement;
+    expect(side).toHaveTextContent("No USD accounts in your net position");
+    expect(side).not.toHaveTextContent("No accounts yet");
+    expect(side.querySelector(".side-net-value")).toHaveTextContent("—");
+    expect(side.querySelector(".side-net-split")).not.toHaveTextContent("$0.00");
+  });
+
+  it("separates all-excluded accounts from an empty ledger in the sidebar", async () => {
+    for (const account of mockAccounts()) archiveMockAccount(account.id, true);
+    createMockAccount({
+      issuer: "Local Bank",
+      displayName: "Excluded Checking",
+      lastFour: null,
+      accountType: "checking",
+      currency: "USD",
+      creditLimit: null,
+      currentBalance: "1250.00",
+      includeInOverview: false,
+    });
+
+    await unlock();
+    const side = document.querySelector(".side-net") as HTMLElement;
+    expect(side).toHaveTextContent("All accounts are excluded from totals");
+    expect(side).not.toHaveTextContent("No accounts yet");
+    expect(side.querySelector(".side-net-value")).toHaveTextContent("—");
+    expect(side.querySelector(".side-net-split")).not.toHaveTextContent("$0.00");
+  });
+
+  it("matches the nav badge, ledger meta, and all-rows detail on mixed currencies", async () => {
+    const user = await unlock();
+    const dashboard = mockDashboard("real", "2026-10");
+    expect(dashboard.summary.otherCurrencyRowCount).toBeGreaterThan(0);
+
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    const transactionsNav = within(nav).getByRole("button", { name: "Transactions" });
+    expect(transactionsNav.querySelector(".nav-count")).toHaveTextContent(
+      String(dashboard.summary.rowCount),
+    );
+
+    await user.click(transactionsNav);
+    expect(await screen.findByRole("heading", { name: "Transactions" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.querySelector(".ledger-meta")).toHaveTextContent(
+        `${dashboard.summary.rowCount} rows`,
+      ),
+    );
+
+    await user.click(within(nav).getByRole("button", { name: "Overview" }));
+    await user.click(await screen.findByRole("button", { name: "The numbers behind this →" }));
+    expect(screen.getByText("Pending rows · all currencies")).toBeInTheDocument();
+    const allRows = screen.getByText("All rows · all currencies").closest("div") as HTMLElement;
+    expect(allRows).toHaveTextContent(String(dashboard.summary.rowCount));
   });
 
   it("walks the onboarding wizard by skipping every optional step", async () => {

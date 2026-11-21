@@ -85,6 +85,39 @@ test.describe("edits, rules, metadata, and CSV workflow (browser mock)", () => {
     await expect(page.getByText(/Exported \d+ rows as plaintext CSV/)).toBeVisible();
   });
 
+  test("keeps a non-USD account's currency when editing it", async ({ page }) => {
+    await openUnlocked(page);
+    await openAccountsTab(page, "All accounts");
+    const row = page
+      .getByRole("row")
+      .filter({ has: page.getByText("Euro Travel (demo)", { exact: true }) });
+    await row.getByRole("button", { name: "Edit" }).click();
+    await expect(page.getByLabel("Currency")).toHaveValue("EUR");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByText(/Account updated/)).toBeVisible();
+
+    await openPrimaryView(page, "Overview");
+    const currencyNote = page.locator(".overview-currency-note");
+    await expect(currencyNote).toContainText("EUR");
+    await expect(currencyNote).toContainText("45.00");
+  });
+
+  test("shows a manually entered card limit instead of 'Limit not reported'", async ({ page }) => {
+    await openUnlocked(page);
+    await openAccountsTab(page, "All accounts");
+    await page.getByRole("button", { name: "Add account manually" }).click();
+    await page.getByLabel("Issuer").fill("Local Bank");
+    await page.getByLabel("Display name").fill("Manual Limit Card");
+    await page.getByLabel("Credit limit (optional)").fill("7500");
+    await page.getByRole("button", { name: "Add account", exact: true }).click();
+    await expect(page.getByText(/Account added/)).toBeVisible();
+
+    await openPrimaryView(page, "Accounts");
+    const tile = page.getByRole("button", { name: "Filter transactions to Manual Limit Card" });
+    await expect(tile).toContainText("$7,500.00 limit · balance not reported");
+    await expect(tile).not.toContainText("Limit not reported");
+  });
+
   test("demo mode disables edits and import/export", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: /Open demo/ }).click();

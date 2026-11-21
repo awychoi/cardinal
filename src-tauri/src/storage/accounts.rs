@@ -216,16 +216,21 @@ pub fn create_manual(conn: &Connection, input: &AccountInput) -> AppResult<Accou
 pub fn update_manual(conn: &Connection, id: &str, input: &AccountInput) -> AppResult<Account> {
     uuid::Uuid::parse_str(id).map_err(|_| AppError::InvalidInput("account id"))?;
     let (issuer, display_name, last_four, currency) = validate_input(input)?;
-    let (source_kind, existing_type): (String, String) = conn
+    let (source_kind, existing_type, existing_currency): (String, String, String) = conn
         .query_row(
-            "SELECT source_kind, account_type FROM accounts WHERE id = ?1 AND archived = 0",
+            "SELECT source_kind, account_type, currency FROM accounts WHERE id = ?1 AND archived = 0",
             [id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .map_err(|error| match error {
             rusqlite::Error::QueryReturnedNoRows => AppError::NotFound,
             other => AppError::from(other),
         })?;
+    // The form has no currency picker, and silently re-denominating an account
+    // would revalue every balance and total. Require a new account instead.
+    if currency != existing_currency {
+        return Err(AppError::InvalidInput("currency"));
+    }
     // A cash balance and a card balance mean opposite things. Converting an
     // account across that line would silently flip thousands of dollars in the
     // overview, so require a new account instead.

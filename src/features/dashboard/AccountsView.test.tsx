@@ -41,7 +41,7 @@ describe("AccountsView", () => {
     expect(within(bankSection).queryByText(/Last statement/)).not.toBeInTheDocument();
     expect(within(bankSection).queryByText(/Next payment/)).not.toBeInTheDocument();
     expect(within(bankSection).getAllByText("checking").length).toBeGreaterThan(0);
-    expect(within(bankSection).getByText("In net position")).toBeInTheDocument();
+    expect(within(bankSection).getByText("In USD totals")).toBeInTheDocument();
   });
 
   it("offers a way to add a bank account", async () => {
@@ -84,7 +84,7 @@ describe("AccountsView", () => {
 
     const summary = screen.getByRole("region", { name: "Balance sheet summary" });
     const cashSide = within(summary)
-      .getByText("Cash you own")
+      .getByText(/Cash you own/)
       .closest(".sheet-side") as HTMLElement;
     expect(within(cashSide).getByText("—")).toBeInTheDocument();
     expect(
@@ -126,7 +126,7 @@ describe("AccountsView", () => {
 
     const summary = screen.getByRole("region", { name: "Balance sheet summary" });
     const cardSide = within(summary)
-      .getByText("Card balances")
+      .getByText(/Card balances/)
       .closest(".sheet-side") as HTMLElement;
     expect(within(cardSide).getByText("—")).toBeInTheDocument();
     expect(within(cardSide).getByText(/not in totals/)).toBeInTheDocument();
@@ -141,6 +141,39 @@ describe("AccountsView", () => {
       .closest("section") as HTMLElement;
     expect(within(bankSection).getAllByText("Not in totals").length).toBeGreaterThan(0);
     expect(within(bankSection).getByText("Excluded")).toBeInTheDocument();
+  });
+
+  it("keeps other-currency-only accounts outside the USD totals", () => {
+    const base = mockDashboard("demo", "2026-10").overview.accounts;
+    const eurCard = base.find(
+      (account) => account.currency === "EUR" && !isDepositoryAccount(account.accountType),
+    );
+    if (!eurCard) throw new Error("EUR fixture missing");
+    const eurBank = {
+      ...eurCard,
+      accountId: "eur-bank",
+      displayName: "Euro Checking",
+      accountType: "checking",
+      currentBalanceMinor: 125_000,
+    };
+    render(
+      <AccountsView
+        dashboard={dashboardWithAccounts([eurBank, eurCard])}
+        theme={getTheme("ledger")}
+        onFilterAccount={vi.fn()}
+        onAddAccount={vi.fn()}
+      />,
+    );
+
+    const summary = screen.getByRole("region", { name: "Balance sheet summary" });
+    expect(within(summary).getAllByText(/1 account · outside USD totals/)).toHaveLength(2);
+    expect(within(summary).queryByText("$0.00")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Filter transactions to Euro Checking" }),
+    ).toHaveAccessibleDescription(/Other currency, outside USD totals/);
+    expect(
+      screen.getByRole("button", { name: "Filter transactions to Euro Travel (demo)" }),
+    ).toHaveAccessibleDescription(/Other currency, outside USD totals/);
   });
 
   it("filters the ledger from a bank account", async () => {
@@ -169,5 +202,55 @@ describe("AccountsView", () => {
     expect(card).toHaveAccessibleDescription(/current balance/);
     expect(card).toHaveAccessibleDescription(/spent this month/);
     expect(card).toHaveAccessibleDescription(/Connected/);
+  });
+
+  it("shows a known manual card limit instead of 'Limit not reported'", () => {
+    const existing = mockDashboard("demo", "2026-10").overview.accounts;
+    const card = existing.find(
+      (account) => !isDepositoryAccount(account.accountType) && account.currency === "USD",
+    );
+    if (!card) throw new Error("fixture card missing");
+    render(
+      <AccountsView
+        dashboard={dashboardWithAccounts([
+          {
+            ...card,
+            accountId: "manual-limit-card",
+            displayName: "Manual Limit Card",
+            sourceKind: "manual",
+            connectionStatus: null,
+            currentBalanceMinor: null,
+            availableCreditMinor: null,
+            creditLimitMinor: 750_000,
+          },
+        ])}
+        theme={getTheme("ledger")}
+        onFilterAccount={vi.fn()}
+        onAddAccount={vi.fn()}
+      />,
+    );
+
+    const tile = screen.getByRole("button", {
+      name: "Filter transactions to Manual Limit Card",
+    });
+    expect(tile).toHaveTextContent("$7,500.00 limit · balance not reported");
+    expect(tile).not.toHaveTextContent("Limit not reported");
+  });
+
+  it("treats an account with no spend row as a known $0.00, not an unknown", async () => {
+    const user = userEvent.setup();
+    renderAccounts();
+
+    const paypal = screen.getByRole("button", {
+      name: "Filter transactions to PayPal Credit (demo)",
+    });
+    expect(paypal).toHaveAccessibleDescription(/\$0\.00 spent this month/);
+    expect(paypal).toHaveTextContent("$0.00");
+
+    await user.click(screen.getByText("The full account table"));
+    const paypalRow = Array.from(document.querySelectorAll(".detail-table tr")).find((row) =>
+      row.textContent?.includes("PayPal Credit"),
+    );
+    expect(paypalRow).toHaveTextContent("$0.00");
   });
 });

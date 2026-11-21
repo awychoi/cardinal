@@ -134,6 +134,7 @@ struct AccountRow {
     last_four: Option<String>,
     account_type: String,
     currency: String,
+    credit_limit_minor: Option<i64>,
     included: bool,
     source_kind: String,
 }
@@ -141,7 +142,7 @@ struct AccountRow {
 fn load_accounts(conn: &Connection, include_archived: bool) -> AppResult<Vec<AccountRow>> {
     let sql =
         format!(
-        "SELECT id, issuer, display_name, last_four, account_type, currency, include_in_overview, source_kind \
+        "SELECT id, issuer, display_name, last_four, account_type, currency, credit_limit_minor, include_in_overview, source_kind \
          FROM accounts {} ORDER BY issuer COLLATE NOCASE, display_name COLLATE NOCASE, id",
         if include_archived { "" } else { "WHERE archived = 0" }
     );
@@ -155,8 +156,9 @@ fn load_accounts(conn: &Connection, include_archived: bool) -> AppResult<Vec<Acc
                 last_four: row.get(3)?,
                 account_type: row.get(4)?,
                 currency: row.get(5)?,
-                included: row.get::<_, i64>(6)? != 0,
-                source_kind: row.get(7)?,
+                credit_limit_minor: row.get(6)?,
+                included: row.get::<_, i64>(7)? != 0,
+                source_kind: row.get(8)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -395,6 +397,13 @@ pub fn overview(conn: &Connection, today: NaiveDate) -> AppResult<Overview> {
                 .map(|retrieved| (today - retrieved.date_naive()).num_days().max(0))
         });
         let balance_stale = balance_age_days.map(|days| days > 7).unwrap_or(false);
+        // A provider snapshot owns its reported limit. When it carries none,
+        // fall back to the account's stored limit so a manually entered limit
+        // is not invisible in the balance sheet.
+        let credit_limit_minor = balance
+            .as_ref()
+            .and_then(|balance| balance.limit)
+            .or(row.credit_limit_minor);
 
         if row.included {
             match (depository, &balance) {
@@ -429,7 +438,7 @@ pub fn overview(conn: &Connection, today: NaiveDate) -> AppResult<Overview> {
             connection_status: status,
             current_balance_minor: balance.as_ref().map(|b| b.current),
             available_credit_minor: balance.as_ref().and_then(|b| b.available),
-            credit_limit_minor: balance.as_ref().and_then(|b| b.limit),
+            credit_limit_minor,
             balance_retrieved_at: balance.as_ref().map(|b| b.retrieved_at.clone()),
             balance_provenance: balance.as_ref().map(|b| b.provenance.clone()),
             balance_age_days,

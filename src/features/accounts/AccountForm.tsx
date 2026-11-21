@@ -85,6 +85,9 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
   const [accountType, setAccountType] = useState<AccountType>(
     (initial?.accountType as AccountType | undefined) ?? "credit_card",
   );
+  // The form has no currency picker yet, but editing must never re-denominate
+  // an existing account: a EUR account stays EUR. New accounts remain USD.
+  const [currency] = useState(initial?.currency ?? "USD");
   const [creditLimit, setCreditLimit] = useState(
     initial?.creditLimitMinor != null ? (initial.creditLimitMinor / 100).toFixed(2) : "",
   );
@@ -118,7 +121,7 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
       displayName,
       lastFour: lastFour.trim() === "" ? null : lastFour.trim(),
       accountType,
-      currency: "USD",
+      currency,
       creditLimit: depository || creditLimit.trim() === "" ? null : creditLimit.trim(),
       currentBalance:
         depository && canEditBalance && currentBalance.trim() !== "" ? currentBalance.trim() : null,
@@ -316,7 +319,7 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
             ref={(element) => {
               fieldRefs.current.currency = element;
             }}
-            value="USD"
+            value={currency}
             readOnly
             aria-readonly="true"
             aria-label="Currency"

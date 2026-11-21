@@ -126,6 +126,8 @@ export function createMockAccount(input: {
   includeInOverview: boolean;
 }): Account {
   const now = "2026-10-23T12:00:00Z";
+  const creditLimitMinor = parseCreditLimit(input.creditLimit);
+  const currentBalanceMinor = toMinor(input.currentBalance, { allowNegative: true });
   const created: Account = {
     id: crypto.randomUUID(),
     issuer: input.issuer,
@@ -133,9 +135,7 @@ export function createMockAccount(input: {
     lastFour: input.lastFour,
     accountType: input.accountType,
     currency: input.currency,
-    creditLimitMinor: input.creditLimit
-      ? Math.round(Number(input.creditLimit.replace(/[$,]/g, "")) * 100)
-      : null,
+    creditLimitMinor,
     includeInOverview: input.includeInOverview,
     archived: false,
     sourceKind: "manual",
@@ -143,9 +143,9 @@ export function createMockAccount(input: {
     updatedAt: now,
   };
   accounts = [...accounts, created];
-  if (input.currentBalance) {
+  if (currentBalanceMinor !== null) {
     balances[created.id] = {
-      minor: Math.round(Number(input.currentBalance.replace(/[$,]/g, "")) * 100),
+      minor: currentBalanceMinor,
       retrieved: now,
     };
   }
@@ -158,6 +158,8 @@ export function updateMockAccount(
 ): Account {
   const existing = accounts.find((item) => item.id === id);
   if (!existing) throw new BridgeError("not_found", "Account not found.");
+  const creditLimitMinor = parseCreditLimit(input.creditLimit);
+  const currentBalanceMinor = toMinor(input.currentBalance, { allowNegative: true });
   const updated: Account = {
     ...existing,
     issuer: input.issuer,
@@ -165,16 +167,14 @@ export function updateMockAccount(
     lastFour: input.lastFour,
     accountType: input.accountType,
     currency: input.currency,
-    creditLimitMinor: input.creditLimit
-      ? Math.round(Number(input.creditLimit.replace(/[$,]/g, "")) * 100)
-      : null,
+    creditLimitMinor,
     includeInOverview: input.includeInOverview,
     updatedAt: "2026-10-23T12:00:00Z",
   };
   accounts = accounts.map((item) => (item.id === id ? updated : item));
-  if (input.currentBalance && existing.sourceKind === "manual") {
+  if (currentBalanceMinor !== null && existing.sourceKind === "manual") {
     balances[id] = {
-      minor: Math.round(Number(input.currentBalance.replace(/[$,]/g, "")) * 100),
+      minor: currentBalanceMinor,
       retrieved: "2026-10-23T12:00:00Z",
     };
   }
@@ -501,7 +501,8 @@ function breakdown(rows: MockTx[], keyOf: (tx: MockTx) => string): Breakdown[] {
 
 function summaryFor(month: string): MonthSummary {
   const bounds = monthBounds(month);
-  const usd = transactions.filter((tx) => tx.currency === "USD" && inMonth(tx.date, month));
+  const monthRows = transactions.filter((tx) => inMonth(tx.date, month));
+  const usd = monthRows.filter((tx) => tx.currency === "USD");
   const spend = usd.filter(eligible);
   const grossPurchasesMinor = spend
     .filter((tx) => effective(tx).type === "purchase")
@@ -531,11 +532,12 @@ function summaryFor(month: string): MonthSummary {
     netSpendingMinor,
     pendingSubtotalMinor,
     eligibleCount: spend.length,
-    pendingCount: usd.filter((tx) => tx.pending).length,
-    rowCount: usd.length,
-    otherCurrencyRowCount: transactions.filter(
-      (tx) => tx.currency !== "USD" && inMonth(tx.date, month),
-    ).length,
+    // Rust counts every visible row in the month, all currencies and types;
+    // otherCurrencyRowCount is the subset that is not USD. The ledger's row
+    // count and the nav badge use rowCount directly.
+    pendingCount: monthRows.filter((tx) => tx.pending).length,
+    rowCount: monthRows.length,
+    otherCurrencyRowCount: monthRows.filter((tx) => tx.currency !== "USD").length,
     suppliers,
     categories,
     reconciliation: {
@@ -673,6 +675,14 @@ function accountCards(): AccountCard[] {
       const balance = balances[item.id];
       const connection = CONNECTION[item.id];
       const depository = isDepositoryAccount(item.accountType);
+      const limit = depository ? null : item.creditLimitMinor;
+      const current = balance?.minor ?? null;
+      // Provider/demo limits live on the account too. Derive available credit
+      // from the same stored limit instead of a hard-coded demo number.
+      const available =
+        !depository && limit !== null && limit > 0 && current !== null
+          ? Math.max(limit - current, 0)
+          : null;
       return {
         accountId: item.id,
         issuer: item.issuer,
@@ -683,9 +693,9 @@ function accountCards(): AccountCard[] {
         included: item.includeInOverview,
         sourceKind: item.sourceKind,
         connectionStatus: connection?.status ?? null,
-        currentBalanceMinor: balance?.minor ?? null,
-        availableCreditMinor: depository || !balance ? null : 1_000_000 - balance.minor,
-        creditLimitMinor: depository || !balance ? null : 1_000_000,
+        currentBalanceMinor: current,
+        availableCreditMinor: available,
+        creditLimitMinor: limit,
         balanceRetrievedAt: balance?.retrieved ?? null,
         balanceProvenance: balance ? "provider" : null,
         balanceAgeDays: balance?.stale ? 10 : balance ? 0 : null,
@@ -981,13 +991,31 @@ const manualPayments = new Map<
 const importBatches: import("../lib/bridge/contract").ImportBatch[] = [];
 let importJob: { jobId: string; accountId: string; consumed: boolean } | null = null;
 
-function toMinor(value: string | null): number | null {
+/**
+ * Parse a user-entered money string the way the Rust `parse_currency_amount`
+ * does: reject malformed input instead of letting `Number()` produce NaN and
+ * a schema failure much later. Grouping commas must be well formed.
+ */
+function toMinor(value: string | null, options: { allowNegative?: boolean } = {}): number | null {
   if (!value || value.trim() === "") return null;
-  const normalized = value.replace(/[$,]/g, "").trim();
-  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
+  const trimmed = value.trim();
+  const normalized = trimmed.startsWith("$") ? trimmed.slice(1).trim() : trimmed;
+  const pattern = options.allowNegative
+    ? /^-?(?:\d+|\d{1,3}(?:,\d{3})*)(?:\.\d{1,2})?$/
+    : /^(?:\d+|\d{1,3}(?:,\d{3})*)(?:\.\d{1,2})?$/;
+  if (!pattern.test(normalized)) {
     throw new BridgeError("invalid_input", "Invalid amount.");
   }
-  return Math.round(Number(normalized) * 100);
+  return Math.round(Number(normalized.replace(/,/g, "")) * 100);
+}
+
+function parseCreditLimit(value: string | null): number | null {
+  const minor = toMinor(value);
+  if (minor === null) return null;
+  if (minor <= 0 || minor > 1_000_000_000_000) {
+    throw new BridgeError("invalid_input", "Invalid credit limit.");
+  }
+  return minor;
 }
 
 function effective(tx: MockTx) {

@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { isDepositoryAccount } from "../../lib/bridge";
-import { mockDashboard } from "../../mocks/data";
+import { mockDashboard, mockSpendHistory } from "../../mocks/data";
 import { dashboardWithAccounts } from "../../test/wealthFixtures";
-import { balanceStatus, buildWealthModel, quickRead, topCategorySignal } from "./wealthModel";
+import {
+  balanceStatus,
+  buildWealthModel,
+  quickRead,
+  topCategorySignal,
+  typicalMonthMinor,
+} from "./wealthModel";
 
 function accountCards(dashboard = mockDashboard("demo", "2026-10")) {
   return dashboard.overview.accounts;
@@ -107,5 +113,87 @@ describe("buildWealthModel", () => {
     const model = buildWealthModel(mockDashboard("demo", "2026-10"), null);
 
     expect(model.availableCreditMinor).toBe(5_050_200);
+  });
+
+  it("keeps zero-filled months out of the typical-month average", () => {
+    const typical = typicalMonthMinor([
+      { month: "2026-07", grossMinor: 0, refundsMinor: 0, netMinor: 0, count: 0, complete: true },
+      {
+        month: "2026-08",
+        grossMinor: 10_000,
+        refundsMinor: 0,
+        netMinor: 10_000,
+        count: 2,
+        complete: true,
+      },
+      {
+        month: "2026-09",
+        grossMinor: 30_000,
+        refundsMinor: 0,
+        netMinor: 30_000,
+        count: 4,
+        complete: true,
+      },
+    ]);
+    expect(typical).toBe(20_000);
+  });
+
+  it("distinguishes all-excluded and other-currency-only scopes", () => {
+    const base = accountCards();
+    const checking = base.find(
+      (account) => isDepositoryAccount(account.accountType) && account.currency === "USD",
+    );
+    const card = base.find(
+      (account) => !isDepositoryAccount(account.accountType) && account.currency === "USD",
+    );
+    const eur = base.find((account) => account.currency === "EUR");
+    if (!checking || !card || !eur) throw new Error("fixture accounts missing");
+
+    expect(buildWealthModel(dashboardWithAccounts([eur]), null).usdScope).toBe(
+      "other_currency_only",
+    );
+    expect(
+      buildWealthModel(
+        dashboardWithAccounts([
+          { ...checking, included: false },
+          { ...card, included: false },
+        ]),
+        null,
+      ).usdScope,
+    ).toBe("all_excluded");
+  });
+
+  it("labels a partial cushion as known cash and a partial limit aggregate", () => {
+    const base = accountCards();
+    const checking = base.find(
+      (account) => isDepositoryAccount(account.accountType) && account.currency === "USD",
+    );
+    const card = base.find(
+      (account) => !isDepositoryAccount(account.accountType) && account.currency === "USD",
+    );
+    if (!checking || !card) throw new Error("fixture accounts missing");
+    const dashboard = dashboardWithAccounts([
+      checking,
+      {
+        ...checking,
+        accountId: "second-cash",
+        displayName: "Second Cash",
+        currentBalanceMinor: null,
+      },
+      card,
+      {
+        ...card,
+        accountId: "no-limit-card",
+        displayName: "No Limit Card",
+        creditLimitMinor: null,
+        availableCreditMinor: null,
+      },
+    ]);
+    const history = { ...mockSpendHistory(12, "2026-10") };
+    const model = buildWealthModel(dashboard, history);
+
+    expect(model.cashStatus).toBe("partial");
+    expect(quickRead(model, dashboard).join(" ")).toMatch(/Known cash covers/);
+    expect(model.availableCreditPartial).toBe(true);
   });
 });

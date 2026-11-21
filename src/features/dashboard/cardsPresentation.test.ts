@@ -48,6 +48,20 @@ describe("dueText", () => {
     expect(dueText(noAmount)).toBe("Nov 9, 2026 · amount not reported");
   });
 
+  it("keeps a minimum-due kind with no amount unknown instead of $0.00", () => {
+    const broken = {
+      ...BASE,
+      payment: {
+        ...BASE.payment,
+        nextDueDate: null,
+        estimatedNextDueDate: null,
+        dueAmountMinor: null,
+        dueAmountKind: "minimum_due",
+      },
+    };
+    expect(dueText(broken)).toBe("amount not reported");
+  });
+
   it("labels a rolled-forward past due date as an estimate without its stale minimum", () => {
     const stale = {
       ...BASE,

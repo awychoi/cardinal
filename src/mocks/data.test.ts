@@ -1,8 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { mockDashboard, mockLedger, mockSpendHistory } from "./data";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  createMockAccount,
+  mockAccounts,
+  mockDashboard,
+  mockLedger,
+  mockSpendHistory,
+  resetMockData,
+  updateMockAccount,
+} from "./data";
 
 const OCTOBER = { startDate: "2026-10-01", endDateExclusive: "2026-11-01" };
 const EUR_ACCOUNT = "aaaaaaaa-0000-4000-8000-000000000007";
+
+afterEach(() => {
+  resetMockData();
+});
 
 describe("mock ledger subtotals", () => {
   it("keeps currencies separate and puts USD first", () => {
@@ -93,5 +105,115 @@ describe("mock spend history", () => {
   it("rejects an out-of-range window", () => {
     expect(() => mockSpendHistory(0)).toThrowError(/invalid|months/i);
     expect(() => mockSpendHistory(25)).toThrowError(/invalid|months/i);
+  });
+});
+
+describe("mock month row counts", () => {
+  it("counts all visible rows while keeping other currencies as a subset", () => {
+    const dashboard = mockDashboard("demo", "2026-10");
+    const page = mockLedger({ ...OCTOBER, pageSize: 200 });
+
+    expect(dashboard.summary.rowCount).toBe(30);
+    expect(dashboard.summary.otherCurrencyRowCount).toBe(4);
+    // rowCount is the whole month, not USD + other currency added twice.
+    expect(page.rowCount).toBe(dashboard.summary.rowCount);
+    expect(dashboard.summary.rowCount).toBeGreaterThan(dashboard.summary.otherCurrencyRowCount);
+    // Pending rows are all currencies, matching the Rust summary query.
+    expect(dashboard.summary.pendingCount).toBe(2);
+  });
+});
+
+describe("mock account edits", () => {
+  it("keeps a non-USD account in its currency and preserves USD totals", () => {
+    const before = mockDashboard("demo", "2026-10");
+    const eur = mockAccounts().find((account) => account.id === EUR_ACCOUNT);
+    if (!eur) throw new Error("EUR fixture missing");
+    const availableBefore = before.overview.accounts.reduce(
+      (sum, account) => sum + (account.availableCreditMinor ?? 0),
+      0,
+    );
+
+    const updated = updateMockAccount(eur.id, {
+      issuer: eur.issuer,
+      displayName: eur.displayName,
+      lastFour: eur.lastFour,
+      accountType: eur.accountType,
+      currency: eur.currency,
+      creditLimit: eur.creditLimitMinor !== null ? (eur.creditLimitMinor / 100).toFixed(2) : null,
+      currentBalance: null,
+      includeInOverview: eur.includeInOverview,
+    });
+    expect(updated.currency).toBe("EUR");
+
+    const after = mockDashboard("demo", "2026-10");
+    expect(after.overview.balances.cardKnownTotalMinor).toBe(
+      before.overview.balances.cardKnownTotalMinor,
+    );
+    expect(after.overview.balances.netPositionMinor).toBe(
+      before.overview.balances.netPositionMinor,
+    );
+    expect(after.overview.balances.otherCurrency).toEqual(before.overview.balances.otherCurrency);
+    expect(
+      after.overview.accounts.reduce(
+        (sum, account) => sum + (account.availableCreditMinor ?? 0),
+        0,
+      ),
+    ).toBe(availableBefore);
+  });
+
+  it("shows a manual card limit and derives available credit from it", () => {
+    const created = createMockAccount({
+      issuer: "Local Credit Union",
+      displayName: "Travel Card",
+      lastFour: "9999",
+      accountType: "credit_card",
+      currency: "USD",
+      creditLimit: "7,500.00",
+      currentBalance: null,
+      includeInOverview: true,
+    });
+    expect(created.creditLimitMinor).toBe(750_000);
+
+    const card = mockDashboard("demo", "2026-10").overview.accounts.find(
+      (account) => account.accountId === created.id,
+    );
+    expect(card?.creditLimitMinor).toBe(750_000);
+    // No balance snapshot: available credit stays unknown rather than zero.
+    expect(card?.availableCreditMinor).toBeNull();
+
+    updateMockAccount(created.id, {
+      issuer: created.issuer,
+      displayName: created.displayName,
+      lastFour: created.lastFour,
+      accountType: created.accountType,
+      currency: created.currency,
+      creditLimit: "9000.00",
+      currentBalance: null,
+      includeInOverview: true,
+    });
+    const edited = mockDashboard("demo", "2026-10").overview.accounts.find(
+      (account) => account.accountId === created.id,
+    );
+    expect(edited?.creditLimitMinor).toBe(900_000);
+  });
+
+  it("rejects malformed amounts instead of storing NaN", () => {
+    const payload = {
+      issuer: "Chase",
+      displayName: "Bad Amount",
+      lastFour: null,
+      accountType: "credit_card" as const,
+      currency: "USD",
+      creditLimit: "1,2,3",
+      currentBalance: null,
+      includeInOverview: true,
+    };
+    expect(() => createMockAccount(payload)).toThrowError(/invalid amount/i);
+    expect(() =>
+      createMockAccount({ ...payload, creditLimit: "1000", currentBalance: "NaN" }),
+    ).toThrowError(/invalid amount/i);
+    expect(() =>
+      createMockAccount({ ...payload, creditLimit: "0", currentBalance: null }),
+    ).toThrowError(/invalid credit limit/i);
   });
 });

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   command,
-  isDepositoryAccount,
   type AppInfo,
   type Dashboard,
   type Settings,
@@ -309,9 +308,9 @@ export function AppShell({
   const navCounts: Partial<Record<View, number>> = dashboard
     ? {
         accounts: dashboard.overview.accounts.filter((account) => account.included).length,
-        // The summary separates USD rows from other-currency rows; counting
-        // both matches the ledger without ever summing their currencies.
-        transactions: dashboard.summary.rowCount + dashboard.summary.otherCurrencyRowCount,
+        // Row count already includes every visible row in the month, all
+        // currencies. Other-currency rows are a subset, not an addition.
+        transactions: dashboard.summary.rowCount,
       }
     : {};
 
@@ -375,36 +374,56 @@ export function AppShell({
   );
 
   const balances = dashboard?.overview.balances;
-  const includedAccounts = dashboard?.overview.accounts.filter((account) => account.included) ?? [];
-  const cashAccounts = includedAccounts.filter((account) =>
-    isDepositoryAccount(account.accountType),
-  );
-  const cardAccounts = includedAccounts.filter(
-    (account) => !isDepositoryAccount(account.accountType),
-  );
+  const allAccounts = dashboard?.overview.accounts ?? [];
   const wealth = dashboard ? buildWealthModel(dashboard, null) : null;
-  const noAccounts = includedAccounts.length === 0;
+  const noAccounts = allAccounts.length === 0;
+  const allExcluded = wealth?.usdScope === "all_excluded";
+  const otherCurrencyOnly = wealth?.usdScope === "other_currency_only";
+  const usdPosition = wealth?.usdScope === "usd";
   const cashKnown = wealth ? totalReported(wealth.cashStatus) : false;
   const cardKnown = wealth ? totalReported(wealth.cardStatus) : false;
+  // A side covered only by excluded or other-currency accounts is not a known
+  // USD zero: show a dash and explain the scope instead.
+  const cashCountable =
+    usdPosition &&
+    cashKnown &&
+    wealth?.cashScope !== "all_excluded" &&
+    wealth?.cashScope !== "other_currency_only";
+  const cardCountable =
+    usdPosition &&
+    cardKnown &&
+    wealth?.cardScope !== "all_excluded" &&
+    wealth?.cardScope !== "other_currency_only";
   const netKnown =
-    wealth !== null && wealth.netStatus !== "not_reported" && wealth.netStatus !== "empty";
+    usdPosition &&
+    wealth !== null &&
+    wealth.netStatus !== "not_reported" &&
+    wealth.netStatus !== "empty";
   const usdAccountCount = wealth ? wealth.usdCashCount + wealth.usdCardCount : 0;
   const completeness =
     wealth === null
       ? ""
       : noAccounts
         ? "No accounts yet"
-        : wealth.netStatus === "empty"
-          ? "No USD balances yet"
-          : wealth.netStatus === "complete"
-            ? `Complete · all ${usdAccountCount} balance${usdAccountCount === 1 ? "" : "s"} reported`
-            : wealth.netStatus === "partial"
-              ? `Partial · ${wealth.usdMissingBalances} of ${usdAccountCount} balances not reported`
-              : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
+        : allExcluded
+          ? "All accounts are excluded from totals"
+          : otherCurrencyOnly
+            ? "No USD accounts in your net position"
+            : wealth.netStatus === "complete"
+              ? `Complete · all ${usdAccountCount} balance${usdAccountCount === 1 ? "" : "s"} reported`
+              : wealth.netStatus === "partial"
+                ? `Partial · ${wealth.usdMissingBalances} of ${usdAccountCount} balances not reported`
+                : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
+  const sideNote = (countable: boolean, scope: string | undefined): string | null => {
+    if (countable) return null;
+    if (scope === "all_excluded") return "Excluded from totals";
+    if (scope === "other_currency_only") return "Only other currency";
+    return "Not reported";
+  };
   const cashSide =
-    balances && !noAccounts && cashKnown ? formatMoney(balances.cashKnownTotalMinor) : "—";
+    balances && !noAccounts && cashCountable ? formatMoney(balances.cashKnownTotalMinor) : "—";
   const cardSide =
-    balances && !noAccounts && cardKnown ? formatMoney(balances.cardKnownTotalMinor) : "—";
+    balances && !noAccounts && cardCountable ? formatMoney(balances.cardKnownTotalMinor) : "—";
   const netSide =
     balances && !noAccounts && netKnown ? formatSignedMoney(balances.netPositionMinor) : "—";
 
@@ -421,20 +440,32 @@ export function AppShell({
       >
         {netSide}
       </strong>
-      {!netKnown && !noAccounts ? <span className="side-net-value-note">Not reported</span> : null}
+      {!netKnown && !noAccounts ? (
+        <span className="side-net-value-note">
+          {allExcluded
+            ? "All accounts are excluded from totals"
+            : otherCurrencyOnly
+              ? "No USD accounts in your net position"
+              : "Not reported"}
+        </span>
+      ) : null}
       <div className="side-net-split">
         <span>
           <span className="side-net-key">Cash</span>
-          <span className={cashKnown && !noAccounts ? undefined : "side-net-unknown"}>
+          <span className={cashCountable ? undefined : "side-net-unknown"}>
             {cashSide}
-            {cashKnown && !noAccounts ? null : <span className="sr-only"> Not reported</span>}
+            {cashCountable ? null : (
+              <span className="sr-only"> {sideNote(false, wealth?.cashScope)}</span>
+            )}
           </span>
         </span>
         <span>
           <span className="side-net-key">Owed</span>
-          <span className={cardKnown && !noAccounts ? undefined : "side-net-unknown"}>
+          <span className={cardCountable ? undefined : "side-net-unknown"}>
             {cardSide}
-            {cardKnown && !noAccounts ? null : <span className="sr-only"> Not reported</span>}
+            {cardCountable ? null : (
+              <span className="sr-only"> {sideNote(false, wealth?.cardScope)}</span>
+            )}
           </span>
         </span>
       </div>
@@ -444,8 +475,8 @@ export function AppShell({
         ) : (
           <>
             <span>
-              {cashAccounts.length} cash · {cardAccounts.length} card
-              {cardAccounts.length === 1 ? "" : "s"}
+              {wealth?.usdCashCount ?? 0} USD cash · {wealth?.usdCardCount ?? 0} USD card
+              {(wealth?.usdCardCount ?? 0) === 1 ? "" : "s"}
             </span>
             <span className="side-net-completeness">{completeness}</span>
           </>

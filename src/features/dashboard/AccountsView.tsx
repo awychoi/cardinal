@@ -47,34 +47,39 @@ function balanceAsOf(account: AccountCard): string {
 }
 
 /** Concise AT context for a bank tile, parallel to its visible numbers. */
-function bankTileDescription(account: AccountCard, spend: number | null): string {
+function inclusionLabel(account: AccountCard): string {
+  if (account.currency !== "USD") {
+    return account.included
+      ? "Other currency, outside USD totals"
+      : "Other currency, excluded from USD totals";
+  }
+  return account.included ? "Included in totals" : "Excluded from totals";
+}
+
+function bankTileDescription(account: AccountCard, spend: number): string {
   const parts = [
     account.currentBalanceMinor === null
       ? "Balance not reported"
       : `${balanceText(account)} current balance reported, ${balanceAsOf(account)}`,
-    spend === null
-      ? "Spent this month not reported"
-      : `${formatMoney(spend, account.currency)} spent this month`,
+    `${formatMoney(spend, account.currency)} spent this month`,
     connectionLabel(account.connectionStatus, account.sourceKind),
-    account.included ? "Included in totals" : "Excluded from totals",
+    inclusionLabel(account),
   ];
   return `${parts.join(". ")}.`;
 }
 
 /** Concise AT context for a card tile, parallel to its visible numbers. */
-function cardTileDescription(account: AccountCard, spend: number | null): string {
+function cardTileDescription(account: AccountCard, spend: number): string {
   const parts = [
     account.currentBalanceMinor === null
       ? "Balance not reported"
       : `${balanceText(account)} current balance reported${
           account.balanceStale ? ", may be stale" : ""
         }`,
-    spend === null
-      ? "Spent this month not reported"
-      : `${formatMoney(spend, account.currency)} spent this month`,
+    `${formatMoney(spend, account.currency)} spent this month`,
     dueText(account, true),
     connectionLabel(account.connectionStatus, account.sourceKind),
-    account.included ? "Included in totals" : "Excluded from totals",
+    inclusionLabel(account),
   ];
   return `${parts.join(". ")}.`;
 }
@@ -88,7 +93,7 @@ function DetailRows({
 }: {
   accounts: AccountCard[];
   kind: "cash" | "card";
-  spendFor: (account: AccountCard) => number | null;
+  spendFor: (account: AccountCard) => number;
   headingId: string;
 }) {
   return (
@@ -113,15 +118,7 @@ function DetailRows({
               {account.displayName}
               <span className="fine-print"> · •••• {account.lastFour ?? "----"}</span>
             </th>
-            <td>
-              {spendFor(account) === null ? (
-                <>
-                  —<span className="sr-only"> Not reported</span>
-                </>
-              ) : (
-                formatMoney(spendFor(account) ?? 0, account.currency)
-              )}
-            </td>
+            <td>{formatMoney(spendFor(account), account.currency)}</td>
             <td>{balanceText(account)}</td>
             <td>
               {account.balanceRetrievedAt
@@ -154,67 +151,87 @@ export function AccountsView({
   const cardAccounts = accounts.filter((account) => !isDepositoryAccount(account.accountType));
   const { balances } = dashboard.overview;
   const model = buildWealthModel(dashboard, null);
-  const cashKnown = totalReported(model.cashStatus);
-  const cardKnown = totalReported(model.cardStatus);
+  const usdPosition = model.usdScope === "usd";
+  const cashScope = model.cashScope;
+  const cardScope = model.cardScope;
   const excludedCashCount = cashAccounts.filter((account) => !account.included).length;
   const excludedCardCount = cardAccounts.filter((account) => !account.included).length;
+  const nonUsdCashCount = cashAccounts.filter(
+    (account) => account.included && account.currency !== "USD",
+  ).length;
+  const nonUsdCardCount = cardAccounts.filter(
+    (account) => account.included && account.currency !== "USD",
+  ).length;
+  const sideCountable = (status: typeof model.cashStatus, scope: typeof model.cashScope): boolean =>
+    usdPosition &&
+    totalReported(status) &&
+    scope !== "all_excluded" &&
+    scope !== "other_currency_only";
+  const cashCountable = sideCountable(model.cashStatus, cashScope);
+  const cardCountable = sideCountable(model.cardStatus, cardScope);
   // An empty side usually means $0.00. When every account on that side is
-  // excluded from totals, show "—" instead so the listed balance is not read as
-  // a zero that was counted.
-  const cashDisplay =
-    cashKnown && !(model.cashStatus === "empty" && excludedCashCount > 0)
-      ? formatMoney(balances.cashKnownTotalMinor)
-      : "—";
-  const cardDisplay =
-    cardKnown && !(model.cardStatus === "empty" && excludedCardCount > 0)
-      ? formatMoney(balances.cardKnownTotalMinor)
-      : "—";
+  // excluded or in another currency, show "—" instead so it is not read as a
+  // USD zero that was counted.
+  const cashDisplay = cashCountable ? formatMoney(balances.cashKnownTotalMinor) : "—";
+  const cardDisplay = cardCountable ? formatMoney(balances.cardKnownTotalMinor) : "—";
   const excludedSuffix = (count: number) => (count > 0 ? ` · ${count} not in totals` : "");
+  const otherCurrencySuffix = (count: number) =>
+    count > 0 ? ` · ${count} other currenc${count === 1 ? "y" : "ies"}` : "";
   const cashNote =
-    model.cashStatus === "not_reported"
-      ? `${model.usdCashCount} account${model.usdCashCount === 1 ? "" : "s"} · Not reported`
-      : model.cashStatus === "empty"
-        ? excludedCashCount > 0
-          ? `${excludedCashCount} account${excludedCashCount === 1 ? "" : "s"} · not in totals`
-          : "No cash accounts yet"
-        : `${model.usdCashCount} account${model.usdCashCount === 1 ? "" : "s"} · ${
-            model.cashStatus === "complete"
-              ? "all reported"
-              : `${model.usdCashReportedCount} of ${model.usdCashCount} reported`
-          }${excludedSuffix(excludedCashCount)}`;
+    cashScope === "all_excluded"
+      ? `${excludedCashCount} account${excludedCashCount === 1 ? "" : "s"} · not in totals`
+      : cashScope === "other_currency_only"
+        ? `${nonUsdCashCount} account${nonUsdCashCount === 1 ? "" : "s"} · outside USD totals`
+        : model.cashStatus === "not_reported"
+          ? `${model.usdCashCount} USD account${model.usdCashCount === 1 ? "" : "s"} · Not reported`
+          : cashScope === "empty"
+            ? "No cash accounts yet"
+            : `${model.usdCashCount} USD account${model.usdCashCount === 1 ? "" : "s"} · ${
+                model.cashStatus === "complete"
+                  ? "all reported"
+                  : `${model.usdCashReportedCount} of ${model.usdCashCount} reported`
+              }${excludedSuffix(excludedCashCount)}${otherCurrencySuffix(nonUsdCashCount)}`;
   const cardNote =
-    model.cardStatus === "not_reported"
-      ? `${model.usdCardCount} card${model.usdCardCount === 1 ? "" : "s"} tracked · Not reported`
-      : model.cardStatus === "empty"
-        ? excludedCardCount > 0
-          ? `${excludedCardCount} card${excludedCardCount === 1 ? "" : "s"} · not in totals`
-          : "No cards tracked"
-        : `${model.usdCardCount} USD card${model.usdCardCount === 1 ? "" : "s"} · ${
-            model.cardStatus === "complete"
-              ? "all reported"
-              : `${model.usdCardReportedCount} of ${model.usdCardCount} reported`
-          }${excludedSuffix(excludedCardCount)}`;
+    cardScope === "all_excluded"
+      ? `${excludedCardCount} account${excludedCardCount === 1 ? "" : "s"} · not in totals`
+      : cardScope === "other_currency_only"
+        ? `${nonUsdCardCount} account${nonUsdCardCount === 1 ? "" : "s"} · outside USD totals`
+        : model.cardStatus === "not_reported"
+          ? `${model.usdCardCount} card${model.usdCardCount === 1 ? "" : "s"} tracked · Not reported`
+          : cardScope === "empty"
+            ? "No cards tracked"
+            : `${model.usdCardCount} USD card${model.usdCardCount === 1 ? "" : "s"} · ${
+                model.cardStatus === "complete"
+                  ? "all reported"
+                  : `${model.usdCardReportedCount} of ${model.usdCardCount} reported`
+              }${excludedSuffix(excludedCardCount)}${otherCurrencySuffix(nonUsdCardCount)}`;
   const netDisplay =
-    model.netStatus === "not_reported" || model.netStatus === "empty"
+    model.netStatus === "not_reported" || model.netStatus === "empty" || !usdPosition
       ? "—"
       : formatSignedMoney(balances.netPositionMinor);
   const usdAccountCount = model.usdCashCount + model.usdCardCount;
   const netNote =
-    model.netStatus === "complete"
-      ? `Complete · all ${usdAccountCount} balance${usdAccountCount === 1 ? "" : "s"} reported`
-      : model.netStatus === "partial"
-        ? `Partial · ${model.usdMissingBalances} of ${usdAccountCount} balances not reported`
-        : model.netStatus === "empty"
-          ? "No USD accounts in totals"
-          : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
+    model.usdScope === "all_excluded"
+      ? "All accounts are excluded from totals"
+      : model.usdScope === "other_currency_only"
+        ? "Only other-currency accounts"
+        : model.netStatus === "complete"
+          ? `Complete · all ${usdAccountCount} balance${usdAccountCount === 1 ? "" : "s"} reported`
+          : model.netStatus === "partial"
+            ? `Partial · ${model.usdMissingBalances} of ${usdAccountCount} balances not reported`
+            : model.netStatus === "empty"
+              ? "No USD accounts in totals"
+              : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
   const faces = theme.options.cardArt === "faces";
   const spendByAccount = new Map<string, number>(
     dashboard.accountSpend.map(
       (row) => [`${row.accountId}|${row.currency}`, row.netMinor] as const,
     ),
   );
-  const spendFor = (account: AccountCard): number | null =>
-    spendByAccount.get(`${account.accountId}|${account.currency}`) ?? null;
+  // No eligible row for this account this month is a known $0.00, not an
+  // unknown amount. Missing balances stay unknown separately.
+  const spendFor = (account: AccountCard): number =>
+    spendByAccount.get(`${account.accountId}|${account.currency}`) ?? 0;
 
   if (accounts.length === 0) {
     return (
@@ -263,11 +280,13 @@ export function AccountsView({
       <section className="sheet-summary" aria-label="Balance sheet summary">
         <div className="sheet-side sheet-side-cash">
           <span className="sheet-side-label">
-            <AccountKindIcon kind="cash" /> Cash you own
+            <AccountKindIcon kind="cash" /> Cash you own · USD
           </span>
           <strong className={`sheet-side-value${cashDisplay === "—" ? " is-unknown" : ""}`}>
             {cashDisplay}
-            {cashDisplay === "—" ? <span className="sr-only">Not reported</span> : null}
+            {cashDisplay === "—" ? (
+              <span className="sr-only"> Not counted in USD totals</span>
+            ) : null}
           </strong>
           <span className="sheet-side-note">{cashNote}</span>
         </div>
@@ -280,13 +299,20 @@ export function AccountsView({
             }`}
           >
             {netDisplay}
-            {netDisplay === "—" ? <span className="sr-only">Not reported</span> : null}
+            {netDisplay === "—" ? (
+              <span className="sr-only"> Not counted in USD totals</span>
+            ) : null}
           </strong>
-          {cashShare !== null && balances.cashKnownTotalMinor + balances.cardKnownTotalMinor > 0 ? (
+          {cashShare !== null &&
+          usdPosition &&
+          balances.cashKnownTotalMinor + balances.cardKnownTotalMinor > 0 ? (
             <div
               className="sheet-net-bar"
               role="img"
-              aria-label={`Cash ${cashDisplay} and card balances ${cardDisplay}`}
+              title={model.netStatus === "partial" ? "Share of known balances" : undefined}
+              aria-label={`Cash ${cashDisplay} and card balances ${cardDisplay}${
+                model.netStatus === "partial" ? ", share of known balances" : ""
+              }`}
             >
               <span style={{ width: `${cashShare}%` }} />
               <span style={{ width: `${100 - cashShare}%` }} />
@@ -297,11 +323,13 @@ export function AccountsView({
 
         <div className="sheet-side sheet-side-debt">
           <span className="sheet-side-label">
-            <AccountKindIcon kind="card" /> Card balances
+            <AccountKindIcon kind="card" /> Card balances · USD
           </span>
           <strong className={`sheet-side-value${cardDisplay === "—" ? " is-unknown" : ""}`}>
             {cardDisplay}
-            {cardDisplay === "—" ? <span className="sr-only">Not reported</span> : null}
+            {cardDisplay === "—" ? (
+              <span className="sr-only"> Not counted in USD totals</span>
+            ) : null}
           </strong>
           <span className="sheet-side-note">{cardNote}</span>
         </div>
@@ -314,10 +342,13 @@ export function AccountsView({
             <h2 id="bank-accounts-title" className="account-group-title">
               Bank accounts
             </h2>
+            <p className="fine-print">USD total · other currencies stay separate</p>
           </div>
           <strong className={`account-group-total${cashDisplay === "—" ? " is-unknown" : ""}`}>
             {cashDisplay}
-            {cashDisplay === "—" ? <span className="sr-only"> Not reported</span> : null}
+            {cashDisplay === "—" ? (
+              <span className="sr-only"> Not counted in USD totals</span>
+            ) : null}
           </strong>
         </header>
 
@@ -361,17 +392,21 @@ export function AccountsView({
                   <span className="bank-card-stats">
                     <span>
                       <small>Spent this month</small>
-                      {spend === null ? (
-                        <>
-                          —<span className="sr-only"> Not reported</span>
-                        </>
-                      ) : (
-                        formatMoney(spend, account.currency)
-                      )}
+                      {formatMoney(spend, account.currency)}
                     </span>
                     <span>
-                      <small>{account.included ? "In net position" : "Not in totals"}</small>
-                      {account.included ? "Yes" : "Excluded"}
+                      <small>
+                        {account.currency !== "USD"
+                          ? "Outside USD totals"
+                          : account.included
+                            ? "In USD totals"
+                            : "Not in totals"}
+                      </small>
+                      {account.currency !== "USD"
+                        ? `${account.currency} · separate`
+                        : account.included
+                          ? "Yes"
+                          : "Excluded"}
                     </span>
                   </span>
                   <span className="bank-card-note">
@@ -402,8 +437,9 @@ export function AccountsView({
         )}
 
         <p className="fine-print account-group-note">
-          Bank balances are cash. A missing balance is unknown, never $0.00. Debit purchases count
-          toward the month&apos;s spending; transfers, card payments, and income do not.
+          Bank balances are cash. USD totals use USD accounts only; other currencies stay separate.
+          A missing balance is unknown, never $0.00. Debit purchases count toward the month&apos;s
+          spending; transfers, card payments, and income do not.
         </p>
       </section>
 
@@ -414,10 +450,13 @@ export function AccountsView({
             <h2 id="credit-accounts-title" className="account-group-title">
               Credit cards
             </h2>
+            <p className="fine-print">USD total · other currencies stay separate</p>
           </div>
           <strong className={`account-group-total${cardDisplay === "—" ? " is-unknown" : ""}`}>
             {cardDisplay}
-            {cardDisplay === "—" ? <span className="sr-only"> Not reported</span> : null}
+            {cardDisplay === "—" ? (
+              <span className="sr-only"> Not counted in USD totals</span>
+            ) : null}
           </strong>
         </header>
 
@@ -429,10 +468,16 @@ export function AccountsView({
               const spend = spendFor(account);
               const limit = account.creditLimitMinor;
               const balance = account.currentBalanceMinor;
+              const limitKnown = limit !== null && limit > 0;
               const used =
-                limit && limit > 0 && balance !== null
+                limitKnown && balance !== null
                   ? Math.min(100, Math.max(0, Math.round((balance / limit) * 100)))
                   : null;
+              // Provider-reported available credit wins; otherwise derive it
+              // from the same reported limit and balance used above.
+              const available =
+                account.availableCreditMinor ??
+                (limitKnown && balance !== null ? Math.max(limit - balance, 0) : null);
               return (
                 <button
                   type="button"
@@ -474,15 +519,7 @@ export function AccountsView({
                       </span>
                       <span>
                         <small>Spent this month</small>
-                        <strong>
-                          {spend === null ? (
-                            <>
-                              —<span className="sr-only"> Not reported</span>
-                            </>
-                          ) : (
-                            formatMoney(spend, account.currency)
-                          )}
-                        </strong>
+                        <strong>{formatMoney(spend, account.currency)}</strong>
                       </span>
                     </span>
 
@@ -490,13 +527,13 @@ export function AccountsView({
                       <span className="card-account-util-head">
                         <small>
                           {used === null
-                            ? "Limit not reported"
+                            ? limitKnown
+                              ? `${formatMoney(limit ?? 0, account.currency)} limit · balance not reported`
+                              : "Limit not reported"
                             : `${used}% of ${formatMoney(limit ?? 0, account.currency)} limit`}
                         </small>
-                        {account.availableCreditMinor !== null ? (
-                          <small>
-                            {formatMoney(account.availableCreditMinor, account.currency)} available
-                          </small>
+                        {available !== null ? (
+                          <small>{formatMoney(available, account.currency)} available</small>
                         ) : null}
                       </span>
                       <span className="card-account-track" aria-hidden="true">
@@ -507,7 +544,14 @@ export function AccountsView({
                     <span className="card-account-foot">
                       <span>{dueText(account, true)}</span>
                       {!account.included ? (
-                        <span className="fine-print card-excluded">Not in totals</span>
+                        <span className="fine-print card-excluded">
+                          Not in totals
+                          {account.currency !== "USD" ? ` · ${account.currency}` : ""}
+                        </span>
+                      ) : account.currency !== "USD" ? (
+                        <span className="fine-print card-excluded">
+                          {account.currency} · outside USD totals
+                        </span>
                       ) : null}
                       {account.payment.dueSource === "manual" ? (
                         <span className="fine-print card-manual-source">
@@ -542,7 +586,8 @@ export function AccountsView({
           </div>
         )}
         <p className="fine-print account-group-note">
-          A statement balance is not the remaining amount due. Missing values are never shown as
+          USD totals use USD cards only; other currencies and excluded cards stay separate. A
+          statement balance is not the remaining amount due. Missing values are never shown as
           $0.00. A due date that has already passed is rolled forward a month and marked{" "}
           <strong>Est.</strong> — its reported minimum belongs to the earlier cycle, so it is not
           carried over.

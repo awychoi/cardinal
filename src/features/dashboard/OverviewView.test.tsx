@@ -41,7 +41,7 @@ describe("OverviewView", () => {
 
     expect(screen.getByText("$502.56")).toBeInTheDocument();
     expect(screen.getByText("Cash on hand")).toBeInTheDocument();
-    expect(screen.getByText("Available credit")).toBeInTheDocument();
+    expect(screen.getByText("Available credit · USD")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Coming up" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "A quick read" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Needs attention" })).toBeInTheDocument();
@@ -65,7 +65,7 @@ describe("OverviewView", () => {
     expect(within(hero).getByText("Net position")).toBeInTheDocument();
     expect(mini("Cash on hand")).toBeInTheDocument();
     expect(mini("Card balances")).toBeInTheDocument();
-    expect(mini("Available credit")).toBeInTheDocument();
+    expect(mini("Available credit · USD")).toBeInTheDocument();
     expect(within(hero).getAllByText(cash).length).toBeGreaterThan(0);
     expect(within(hero).getAllByText(cards).length).toBeGreaterThan(0);
     // The quick read interprets the month instead of repeating the hero arithmetic.
@@ -173,7 +173,7 @@ describe("OverviewView", () => {
   it("routes hero and attention actions to the shell", async () => {
     const user = userEvent.setup();
     const { onOpenSettings, onOpenTransactions } = renderOverview();
-    expect(screen.getByText("Eligible rows")).toBeInTheDocument();
+    expect(screen.getByText("Eligible rows · USD")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Open connections" }));
     expect(onOpenSettings).toHaveBeenCalledOnce();
     await user.click(screen.getByRole("button", { name: "Open ledger" }));
@@ -277,5 +277,94 @@ describe("OverviewView", () => {
     ).toBeInTheDocument();
     screen.getByRole("button", { name: "Add account" }).click();
     expect(onAddAccount).toHaveBeenCalledOnce();
+  });
+
+  it("does not call a completed month 'so far'", async () => {
+    renderOverview("ledger", mockDashboard("demo", "2026-09"));
+
+    await screen.findByRole("img", { name: /Monthly net spending/i });
+    const trendLead = document.querySelector(".trend-summary-lead") as HTMLElement;
+    expect(trendLead).toHaveTextContent("September 2026");
+    expect(trendLead).not.toHaveTextContent(/so far/i);
+    expect(await screen.findByText(/September spending was/)).toBeInTheDocument();
+    expect(screen.queryByText(/September spending so far/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the current-month so-far label when viewing the current month", () => {
+    renderOverview("ledger", mockDashboard("demo", "2026-10"));
+    expect(screen.getByText("This month so far")).toBeInTheDocument();
+  });
+
+  it("does not turn a EUR-only card into a USD zero position", () => {
+    const eurCard = mockDashboard("demo", "2026-10").overview.accounts.find(
+      (account) => account.currency === "EUR" && !isDepositoryAccount(account.accountType),
+    );
+    if (!eurCard) throw new Error("EUR card fixture missing");
+    renderOverview("ledger", dashboardWithAccounts([eurCard]));
+
+    const hero = screen.getByRole("region", { name: "Net position" });
+    expect(hero.querySelector(".hero-value")).toHaveTextContent("Not reported");
+    expect(within(hero).getByText("Only other-currency cards")).toBeInTheDocument();
+    expect(
+      within(hero).getAllByText("—", { selector: ".hero-mini strong" }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Only other-currency accounts")).toBeInTheDocument();
+    expect(screen.getByText("No USD accounts in your net position")).toBeInTheDocument();
+    expect(screen.queryByText(/Known balances total \$0\.00/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Everything reported looks current")).not.toBeInTheDocument();
+    const cardMini = Array.from(hero.querySelectorAll<HTMLElement>(".hero-mini")).find(
+      (element) => element.querySelector(".hero-mini-label")?.textContent === "Card balances",
+    );
+    expect(cardMini?.querySelector("strong")).toHaveTextContent("—");
+  });
+
+  it("does not turn a EUR-only bank into a USD zero cash side", () => {
+    const base = mockDashboard("demo", "2026-10").overview.accounts;
+    const eurCard = base.find(
+      (account) => account.currency === "EUR" && !isDepositoryAccount(account.accountType),
+    );
+    if (!eurCard) throw new Error("EUR fixture missing");
+    const eurBank = {
+      ...eurCard,
+      accountId: "eur-only-bank",
+      displayName: "Euro Checking",
+      accountType: "checking",
+      currentBalanceMinor: 125_000,
+    };
+    renderOverview("ledger", dashboardWithAccounts([eurBank]));
+
+    const hero = screen.getByRole("region", { name: "Net position" });
+    expect(within(hero).getByText("Only other-currency cash accounts")).toBeInTheDocument();
+    expect(hero.querySelector(".hero-mini strong")).toHaveTextContent("—");
+    expect(screen.queryByText("No cash accounts yet.")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Open activity for Euro Checking" }),
+    ).toHaveAccessibleDescription(/outside USD totals/);
+    expect(screen.queryByText("Everything reported looks current")).not.toBeInTheDocument();
+  });
+
+  it("separates all-excluded accounts from an empty ledger", () => {
+    const base = mockDashboard("demo", "2026-10").overview.accounts;
+    const checking = base.find((account) => isDepositoryAccount(account.accountType));
+    const card = base.find((account) => !isDepositoryAccount(account.accountType));
+    if (!checking || !card) throw new Error("fixture accounts missing");
+    renderOverview(
+      "ledger",
+      dashboardWithAccounts([
+        { ...checking, included: false },
+        { ...card, included: false },
+      ]),
+    );
+
+    expect(screen.getAllByText("All accounts are excluded from totals").length).toBeGreaterThan(0);
+    expect(screen.queryByText("No accounts yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Known balances total $0.00")).not.toBeInTheDocument();
+    expect(screen.queryByText("Everything reported looks current")).not.toBeInTheDocument();
+    const hero = screen.getByRole("region", { name: "Net position" });
+    expect(hero.querySelector(".hero-value")).toHaveTextContent("Not reported");
+    expect(
+      screen.getByRole("button", { name: /Open activity for Everyday Checking/ }),
+    ).toHaveAccessibleDescription(/excluded from totals/);
+    expect(screen.getAllByText(/not in totals/i).length).toBeGreaterThan(0);
   });
 });

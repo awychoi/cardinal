@@ -19,6 +19,25 @@ import {
 export type BalanceStatus = "empty" | "not_reported" | "partial" | "complete";
 
 /**
+ * What the USD net position can actually see. These are deliberately separate:
+ * "no accounts at all" is onboarding, "all excluded" is a settings choice, and
+ * "other currency only" is a currency-scope fact. Only the last one is a
+ * foreign-currency story; none of them is a $0.00 position.
+ */
+export type UsdScope = "no_accounts" | "all_excluded" | "other_currency_only" | "usd";
+
+/** The scope of one side of the balance sheet, independent of its USD totals. */
+export type SideScope = "empty" | "all_excluded" | "other_currency_only" | "usd";
+
+function sideScopeFor(accounts: AccountCard[]): SideScope {
+  if (accounts.length === 0) return "empty";
+  const included = accounts.filter((account) => account.included);
+  if (included.length === 0) return "all_excluded";
+  if (!included.some((account) => account.currency === "USD")) return "other_currency_only";
+  return "usd";
+}
+
+/**
  * How complete a USD side of the balance sheet is. "not_reported" means the
  * accounts exist but none has a balance snapshot; a reported $0.00 is known
  * and therefore "complete".
@@ -50,6 +69,8 @@ export interface WealthModel {
   availableCreditMinor: number | null;
   creditLimitMinor: number | null;
   utilizationPercent: number | null;
+  /** True when the aggregate available credit omits cards without a known limit/balance. */
+  availableCreditPartial: boolean;
   missingBalances: number;
   /** Included USD accounts without a balance snapshot; the net position's own gap. */
   usdMissingBalances: number;
@@ -66,6 +87,9 @@ export interface WealthModel {
   cashStatus: BalanceStatus;
   cardStatus: BalanceStatus;
   netStatus: BalanceStatus;
+  usdScope: UsdScope;
+  cashScope: SideScope;
+  cardScope: SideScope;
   otherCurrencyCount: number;
 }
 
@@ -107,6 +131,8 @@ export function topCategorySignal(categories: Breakdown[]): TopCategorySignal | 
 
 export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | null): WealthModel {
   const { summary, overview } = dashboard;
+  const allCash = overview.accounts.filter((account) => isDepositoryAccount(account.accountType));
+  const allCards = overview.accounts.filter((account) => !isDepositoryAccount(account.accountType));
   const included = overview.accounts.filter((account) => account.included);
   const cashAccounts = included.filter((account) => isDepositoryAccount(account.accountType));
   const cardAccounts = included.filter((account) => !isDepositoryAccount(account.accountType));
@@ -124,6 +150,14 @@ export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | n
   const cashStatus = balanceStatus(usdCash.length, usdCashReportedCount);
   const cardStatus = balanceStatus(usdCards.length, usdCardReportedCount);
   const netStatus = balanceStatus(usdIncluded.length, usdReportedCount);
+  const usdScope: UsdScope =
+    overview.accounts.length === 0
+      ? "no_accounts"
+      : included.length === 0
+        ? "all_excluded"
+        : usdIncluded.length === 0
+          ? "other_currency_only"
+          : "usd";
   const { balances } = overview;
 
   // A side with no accounts is known to be $0.00. A side with accounts but no
@@ -182,6 +216,11 @@ export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | n
     creditLimitMinor && creditLimitMinor > 0
       ? Math.round((usedCreditMinor / creditLimitMinor) * 100)
       : null;
+  // The aggregate covers only cards with both a known balance and a known
+  // limit. Say so rather than presenting a partial subtotal as the whole.
+  const limitedIds = new Set(limited.map((account) => account.accountId));
+  const availableCreditPartial =
+    usdCards.length > 0 && usdCards.some((account) => !limitedIds.has(account.accountId));
 
   return {
     included,
@@ -195,6 +234,7 @@ export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | n
     availableCreditMinor,
     creditLimitMinor,
     utilizationPercent,
+    availableCreditPartial,
     missingBalances: balances.cardAccountsMissingBalance + balances.cashAccountsMissingBalance,
     usdMissingBalances,
     staleBalances: included.filter((account) => account.balanceStale).length,
@@ -208,6 +248,9 @@ export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | n
     cashStatus,
     cardStatus,
     netStatus,
+    usdScope,
+    cashScope: sideScopeFor(allCash),
+    cardScope: sideScopeFor(allCards),
     otherCurrencyCount: balances.otherCurrency.length,
   };
 }
@@ -215,10 +258,19 @@ export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | n
 export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
   const { overview, summary } = dashboard;
   const items: string[] = [];
-  const hasCash = model.cashAccountCount > 0;
 
-  if (!hasCash) {
+  if (model.usdScope === "all_excluded") {
+    items.push("All accounts are excluded from totals. Include one to see a net position.");
+  } else if (model.usdScope === "other_currency_only") {
+    items.push(
+      "Only other-currency accounts are included; the USD net position has no accounts yet.",
+    );
+  } else if (model.cashScope === "empty") {
     items.push("No cash accounts yet. Add a bank account to see both sides of your net position.");
+  } else if (model.cashScope === "all_excluded") {
+    items.push("Cash accounts are excluded from totals. Include one to count it.");
+  } else if (model.cashScope === "other_currency_only" || model.usdCashCount === 0) {
+    items.push("Cash is only reported in other currencies and stays outside the USD net position.");
   } else if (model.cushionMonths !== null) {
     const months = model.cushionMonths;
     const phrase =
@@ -227,7 +279,9 @@ export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
         : months >= 1
           ? `about ${months.toFixed(1)} months`
           : "less than a month";
-    items.push(`Cash covers ${phrase} of typical spending at your recent pace.`);
+    items.push(
+      `${model.cashStatus === "partial" ? "Known cash" : "Cash"} covers ${phrase} of typical spending at your recent pace.`,
+    );
   } else if (model.usdCashReportedCount > 0) {
     items.push(
       "Your cash is counted, but there is not enough posted activity yet to estimate a cushion.",
@@ -253,8 +307,11 @@ export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
   if (model.pacePercent !== null) {
     const direction = model.pacePercent > 0 ? "above" : "below";
     const amount = Math.abs(model.pacePercent);
+    const current = dashboard.month === dashboard.currentMonth;
     items.push(
-      `${monthLabelSafe(dashboard.month)} spending so far is ${amount}% ${direction} your typical active month.`,
+      `${monthLabelSafe(dashboard.month)} spending ${
+        current ? "so far is" : "was"
+      } ${amount}% ${direction} your typical full active month.`,
     );
   }
 

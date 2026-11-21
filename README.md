@@ -13,13 +13,9 @@ Built with Tauri 2, React, TypeScript, Rust, and SQLCipher.
 - A bank-first balance sheet: cash, card debt, available credit, and a net position that stay current regardless of the month you're viewing.
 - A curated overview — net-position beam, plain-language quick read, payments coming up, category mix, and a 12-month trend — with exact row counts, utilization, and connection health one disclosure away.
 - Calendar-month spending across credit cards and bank accounts, kept separate from statement cycles.
-- Missing balances stay unknown — “Not reported”, never `$0.00` — while a reported `$0.00` is a real value.
-- Upcoming card payments, with bank transfers, card payments, and income excluded from spending.
-- Pending, posted, refunds, fees, payments, and transfers are distinct states.
-- An encrypted ledger, unlocked with a passphrase typed into a native macOS sheet.
-- Works offline with demo data, manual accounts, or CSV import; optional Plaid **Sandbox** or **Trial/Production** connection for sync.
+- An encrypted ledger, unlocked with a passphrase typed into a native macOS sheet - never stored.
 - Plaid links both credit and depository (checking/savings) accounts. Manual bank accounts accept a point-in-time cash balance.
-- One active Plaid Item per institution. A duplicate link is refused before Plaid is asked for an access token, and **Update**/**Reconnect** reuses the existing Item, so accidents cannot spend Trial Item capacity.
+- One active Plaid Item per institution so duplicates are refused before wasting Trial items. **Update**/**Reconnect** reuses the existing Item for the same reason (Plaid caps Trial items to 10, not replenishable).
 
 ## Requirements
 

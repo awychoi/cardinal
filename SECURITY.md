@@ -18,6 +18,7 @@ Cardinal is a local, single-user, encrypted macOS app. It is not a hosted servic
 | Files | 0700 directories, 0600 files, symlink rejection, atomic writes |
 | Network | Rust-only client, TLS verification, HTTPS-only, no redirects, exact `*.plaid.com` allowlist, response caps; the renderer has no network source at all |
 | Audit trail | Encrypted `security_events` (unlock failures, lock, backup/restore/export, rekey, credential changes, integrity failure, single-instance rejection) |
+| Repository hygiene | gitleaks pre-commit + full-history CI; tracked vault/backup/export and key/credential files refused even if force-added |
 
 ## 2. What the app does not protect against
 
@@ -97,6 +98,10 @@ Security claims are verified only where tests or manual evidence exist. Tracked 
 exercises the Rust integration paths and the browser renderer; embedded Rust unit tests remain in
 the source. Browser tests do not prove native Tauri or macOS behavior. Historical evidence is in
 the local archive.
+
+A repository secret audit on 2026-11-21 covered tracked files, full Git history, unreachable
+objects, build outputs, and local caches; it found no live credentials. The only scanner hits were
+generic-API-key false positives in vendored crates and build artifacts under ignored directories.
 
 ## 7. Residual risks (summary)
 

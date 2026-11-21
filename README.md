@@ -80,8 +80,10 @@ full-history CI scan. Enable the local hook once per clone:
 git config core.hooksPath .githooks
 ```
 
-It rejects staged credentials and the app's own vault, backup, and plaintext ledger-export
-artifacts. CI (`.github/workflows/secret-scan.yml`) re-scans all history on every push and weekly.
+It rejects staged credentials, the app's own vault, backup, and plaintext ledger-export artifacts,
+and tracked key/credential files (`.env*` except `.env.example`, `.p8`/`.p12`/`.jks`/`.keystore`,
+SSH private keys, `.netrc`, `.git-credentials`) even if force-added. CI
+(`.github/workflows/secret-scan.yml`) re-scans all history on every push and weekly.
 
 ## Security notes
 

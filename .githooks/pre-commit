@@ -18,13 +18,15 @@ run_scan() {
 }
 
 # Gitleaks does not know this app's file extensions, so a committed vault,
-# backup, or plaintext ledger export would pass it. Mirrors the CI check so the
-# commit is refused locally, before it can reach a public remote.
+# backup, or plaintext ledger export would pass it, and it skips binary key
+# stores. Mirrors the CI check so the commit is refused locally, before it can
+# reach a public remote.
 reject_artifacts() {
-  artifacts="$(git diff --cached --name-only --diff-filter=ACMR | grep -nE \
-    '\.cmdb(-wal|-shm|-journal)?$|\.cmdb\.restore-old$|\.cmbak$|vault\.header(\.bak)?$|cardinal-ledger-.*\.csv$|\.cm-export-.*\.tmp$' || true)"
+  artifacts="$(git diff --cached --name-only --diff-filter=ACMR | grep -E \
+    '\.cmdb(-wal|-shm|-journal)?$|\.cmdb\.restore-old$|\.cmbak$|vault\.header(\.bak)?$|cardinal-ledger-.*\.csv$|\.cm-export-.*\.tmp$|(^|/)\.env($|\.[^/]+$)|(^|/)\.envrc$|(^|/)\.netrc$|(^|/)_netrc$|(^|/)\.git-credentials$|(^|/)id_(rsa|ecdsa|ed25519)$|\.p8$|\.p12$|\.pfx$|\.jks$|\.keystore$|\.mobileprovision$|(^|/)service-account[^/]*\.json$|(^|/)credentials\.json$' \
+    | grep -vE '(^|/)\.env\.(example|sample|template)$' || true)"
   if [ -n "$artifacts" ]; then
-    echo "pre-commit: refusing to commit a vault, backup, or plaintext ledger export:" >&2
+    echo "pre-commit: refusing to commit a vault, backup, plaintext ledger export, or key/credential file:" >&2
     echo "$artifacts" >&2
     echo "  Remove it with: git rm --cached <file>" >&2
     exit 1

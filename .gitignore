@@ -53,9 +53,23 @@ fixtures/real/
 .env.*
 !.env.example
 .direnv/
+.envrc
 *.pem
 *.key
 *.p12
+*.pfx
+*.p8
+*.jks
+*.keystore
+*.mobileprovision
+.netrc
+_netrc
+.git-credentials
+id_rsa
+id_ecdsa
+id_ed25519
+service-account*.json
+credentials.json
 
 # Logs / crash artifacts
 *.log

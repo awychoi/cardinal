@@ -164,7 +164,7 @@ export function OnboardingWizard({
   const timezonePreview = formatTimeZonePreview(timezone);
 
   return (
-    <main className="wizard" aria-labelledby="wizard-title">
+    <main className="wizard" id="wizard-main" tabIndex={-1} aria-labelledby="wizard-title">
       <div className="wizard-card">
         <header className="wizard-header">
           <div className="vault-brand">

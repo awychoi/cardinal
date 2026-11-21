@@ -50,7 +50,7 @@
   align-items: center;
   color: var(--muted);
   display: flex;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   gap: 6px;
   letter-spacing: 0.1em;
@@ -76,9 +76,19 @@
   color: var(--accent-ink);
 }
 
+.sheet-side-value.is-unknown,
+.sheet-net-value.is-unknown {
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: clamp(19px, 2vw, 24px);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1.35;
+}
+
 .sheet-side-note {
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: 10.5px;
 }
 
 .sheet-net {
@@ -163,10 +173,16 @@
   margin: 0;
 }
 
+.account-group-total.is-unknown {
+  color: var(--muted);
+  font-size: 16px;
+  letter-spacing: 0.08em;
+}
+
 .account-group-total {
   color: var(--text-2);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 13.5px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -228,7 +244,7 @@
   align-items: center;
   color: var(--success);
   display: inline-flex;
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 700;
   gap: 5px;
   letter-spacing: 0.1em;
@@ -252,7 +268,7 @@
 .card-account .status-pill {
   align-items: center;
   display: inline-flex;
-  font-size: 9px;
+  font-size: 9.5px;
   gap: 4px;
   padding: 1px 7px;
 }
@@ -267,7 +283,7 @@
 .bank-card-mask {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.02em;
 }
 
@@ -281,9 +297,18 @@
   margin-top: 9px;
 }
 
+.bank-card-balance.is-unknown {
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+}
+
 .bank-card-asof {
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: 10.5px;
 }
 
 .bank-card-rule {
@@ -302,7 +327,7 @@
   color: var(--text-2);
   display: grid;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   gap: 1px;
 }
@@ -310,14 +335,14 @@
 .bank-card-stats small {
   color: var(--muted);
   font-family: var(--font-sans);
-  font-size: 8.5px;
+  font-size: 9.5px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .bank-card-note {
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: 10.5px;
   line-height: 1.4;
   margin-top: 10px;
   max-width: 42ch;
@@ -325,7 +350,7 @@
 
 .bank-card-cta {
   color: var(--success);
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.03em;
   margin-top: 8px;
@@ -351,7 +376,7 @@
 
 .account-empty-card p {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 11.5px;
   margin: 3px 0 0;
   max-width: 62ch;
 }
@@ -472,7 +497,7 @@
 
 .card-account-name {
   display: block;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 620;
   line-height: 1.2;
   max-width: 100%;
@@ -484,7 +509,7 @@
 .card-account-issuer {
   color: var(--muted);
   display: block;
-  font-size: 9px;
+  font-size: 10px;
   margin-top: 1px;
   max-width: 100%;
   overflow: hidden;
@@ -505,14 +530,21 @@
 
 .card-account-balance-row small {
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: 9.5px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
+.card-account-balance-row strong.is-unknown {
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  letter-spacing: 0;
+}
+
 .card-account-balance-row strong {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 14.5px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -531,7 +563,7 @@
 
 .card-account-util-head small {
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: 9.5px;
 }
 
 .card-account-track {
@@ -558,11 +590,11 @@
 
 .card-account-foot > span:first-child {
   color: var(--text-2);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .card-account-foot .fine-print {
-  font-size: 8.5px;
+  font-size: 9.5px;
   margin: 0;
 }
 
@@ -616,7 +648,7 @@
 .account-details > summary strong {
   display: block;
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: var(--display-tracking);
   margin-top: 1px;
 }
@@ -626,7 +658,7 @@
   border: var(--border-width) solid var(--border);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.06em;
   padding: 3px 9px;
@@ -659,7 +691,7 @@
 
 .account-details-body h3 {
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 17px;
   letter-spacing: var(--display-tracking);
   margin: 0 0 6px;
 }

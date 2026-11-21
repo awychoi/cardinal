@@ -97,14 +97,15 @@ test.describe("wealth view (browser mock)", () => {
     await openPrimaryView(page, "Overview");
 
     const cashMini = page.locator(".hero-mini", { hasText: "Cash on hand" });
-    await expect(cashMini).toContainText("—");
     await expect(cashMini).toContainText("Not reported");
-    await expect(page.locator(".wealth-beam-labels")).toContainText("Cash —");
+    await expect(cashMini).toContainText("0 of 1 reported");
+    await expect(cashMini).not.toContainText("$0.00");
+    await expect(page.locator(".wealth-beam-labels")).toContainText("Cash Not reported");
     await expect(page.locator(".wealth-beam-labels")).not.toContainText("Cash $0.00");
     await expect(page.locator(".side-net-value")).toHaveText("—");
     await expect(page.locator(".side-net-split")).toContainText("Cash—");
     await expect(page.locator(".side-net-split")).not.toContainText("Cash$0.00");
-    await expect(page.locator(".side-net-foot")).toContainText("not reported");
+    await expect(page.locator(".side-net-foot")).toContainText(/not reported/i);
 
     await openPrimaryView(page, "Accounts");
     await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();

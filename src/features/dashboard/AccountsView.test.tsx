@@ -87,9 +87,13 @@ describe("AccountsView", () => {
       .getByText("Cash you own")
       .closest(".sheet-side") as HTMLElement;
     expect(within(cashSide).getByText("—")).toBeInTheDocument();
-    expect(within(cashSide).getByText(/Not reported/)).toBeInTheDocument();
+    expect(
+      within(cashSide).getByText(/Not reported/, { selector: ".sheet-side-note" }),
+    ).toBeInTheDocument();
     expect(within(cashSide).queryByText("$0.00")).not.toBeInTheDocument();
-    expect(within(summary).getByText(/^Not reported/)).toBeInTheDocument();
+    expect(
+      within(summary).getByText(/^Not reported · 1 of 1 balances missing$/),
+    ).toBeInTheDocument();
   });
 
   it("marks excluded accounts instead of folding them into a zero total", () => {
@@ -147,5 +151,23 @@ describe("AccountsView", () => {
       screen.getByRole("button", { name: "Filter transactions to Everyday Checking (demo)" }),
     );
     expect(onFilterAccount).toHaveBeenCalledWith("aaaaaaaa-0000-4000-8000-000000000009");
+  });
+
+  it("keeps short names but describes each tile's balance, status, and inclusion", () => {
+    renderAccounts();
+
+    const bank = screen.getByRole("button", {
+      name: "Filter transactions to Everyday Checking (demo)",
+    });
+    expect(bank).toHaveAccessibleDescription(/\$5,123\.00 current balance/);
+    expect(bank).toHaveAccessibleDescription(/Connected/);
+    expect(bank).toHaveAccessibleDescription(/Included in totals/);
+
+    const card = screen.getByRole("button", {
+      name: "Filter transactions to Sapphire Reserve (demo)",
+    });
+    expect(card).toHaveAccessibleDescription(/current balance/);
+    expect(card).toHaveAccessibleDescription(/spent this month/);
+    expect(card).toHaveAccessibleDescription(/Connected/);
   });
 });

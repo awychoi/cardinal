@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   accountTypeLabel,
   command,
@@ -42,6 +42,20 @@ export function AccountManager({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [archiving, setArchiving] = useState<string | null>(null);
+  const panelHeadingRef = useRef<HTMLHeadingElement>(null);
+  const previousMode = useRef<Mode["kind"]>("list");
+
+  // Opening or closing the account form is a real view change for keyboard
+  // users: land them on the new heading instead of letting focus fall to body.
+  useEffect(() => {
+    const previous = previousMode.current;
+    previousMode.current = mode.kind;
+    if (previous === mode.kind) return;
+    const focusHeading = () => panelHeadingRef.current?.focus();
+    if (typeof window.requestAnimationFrame === "function")
+      window.requestAnimationFrame(focusHeading);
+    else window.setTimeout(focusHeading, 0);
+  }, [mode.kind]);
 
   const load = useCallback(async (showArchived: boolean) => {
     try {
@@ -122,7 +136,9 @@ export function AccountManager({
     <section className="panel panel-wide" aria-labelledby="accounts-title">
       <div className="panel-heading">
         <div>
-          <h2 id="accounts-title">{heading}</h2>
+          <h2 id="accounts-title" ref={panelHeadingRef} tabIndex={-1}>
+            {heading}
+          </h2>
           <p className="fine-print">{intro}</p>
         </div>
         {mode.kind === "list" && !readOnly ? (

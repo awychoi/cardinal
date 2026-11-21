@@ -144,7 +144,9 @@ export function VaultGate({
 
         {exists ? (
           <>
-            <h1 id="vault-title">Your encrypted ledger is locked.</h1>
+            <h1 id="vault-title" tabIndex={-1}>
+              Your encrypted ledger is locked.
+            </h1>
             <p className="muted">
               Your accounts, balances, cash, and spending in one private view. The ledger is
               encrypted and opens only with your passphrase.
@@ -190,7 +192,9 @@ export function VaultGate({
           </>
         ) : (
           <>
-            <h1 id="vault-title">Create your encrypted ledger.</h1>
+            <h1 id="vault-title" tabIndex={-1}>
+              Create your encrypted ledger.
+            </h1>
             <p className="muted">
               First launch starts empty. Add a bank account or a card, choose the passphrase, and
               keep the whole picture on this Mac. The app never stores it and there is no recovery

@@ -126,4 +126,40 @@ describe("LedgerView", () => {
     expect(await screen.findByText(/Nothing has been synced or imported yet/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^View / })).not.toBeInTheDocument();
   });
+
+  it("opens details from one row control, announces the panel, and restores focus on Escape", async () => {
+    renderLedger();
+    const buttons = await screen.findAllByRole("button", { name: /^View details for / });
+    const trigger = buttons[0];
+    expect(trigger).toHaveAccessibleName(/^View details for Blue Bottle Coffee/);
+    expect(trigger.closest("tr")).not.toHaveAttribute("tabindex");
+
+    await userEvent.click(trigger);
+
+    const panel = await screen.findByRole("region", { name: /Blue Bottle Coffee/ });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(trigger).toHaveAttribute("aria-controls", "ledger-detail-panel");
+    expect(panel).toHaveAttribute("id", "ledger-detail-panel");
+    await waitFor(() => expect(document.getElementById("detail-title")).toHaveFocus());
+    expect(screen.getByText(/Details opened for Blue Bottle Coffee/)).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: /Blue Bottle Coffee/ })).toBeNull(),
+    );
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("returns focus to the row control when the detail close button is used", async () => {
+    renderLedger();
+    const trigger = (await screen.findAllByRole("button", { name: /^View details for / }))[0];
+    await userEvent.click(trigger);
+    await screen.findByRole("region", { name: /Blue Bottle Coffee/ });
+
+    await userEvent.click(screen.getByRole("button", { name: "Close transaction details" }));
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
 });

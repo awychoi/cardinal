@@ -43,6 +43,7 @@ describe("app shell", () => {
     await unlock();
     expect(screen.getByText(/No provider connected/)).toBeInTheDocument();
     expect(screen.getByText(/Mock desktop bridge/)).toBeInTheDocument();
+    await waitFor(() => expect(document.getElementById("main-content")).toHaveFocus());
   });
 
   it("locks again and clears the unlocked view", async () => {
@@ -50,6 +51,21 @@ describe("app shell", () => {
     await user.click(screen.getByRole("button", { name: "Lock now" }));
     expect(await screen.findByText(/Your encrypted ledger is locked/)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Overview" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveFocus());
+  });
+
+  it("offers a focus-visible skip link and moves focus into main on view changes", async () => {
+    const user = await unlock();
+    const skip = screen.getByRole("link", { name: "Skip to content" });
+    skip.focus();
+    expect(skip).toHaveFocus();
+    await user.click(skip);
+    expect(document.getElementById("main-content")).toHaveFocus();
+
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    await user.click(within(nav).getByRole("button", { name: "Accounts" }));
+    expect(await screen.findByRole("heading", { name: "Accounts", level: 1 })).toBeInTheDocument();
+    await waitFor(() => expect(document.getElementById("main-content")).toHaveFocus());
   });
 
   it("stores only the non-sensitive theme id in browser storage", async () => {

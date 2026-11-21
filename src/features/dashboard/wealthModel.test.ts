@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isDepositoryAccount } from "../../lib/bridge";
 import { mockDashboard } from "../../mocks/data";
 import { dashboardWithAccounts } from "../../test/wealthFixtures";
-import { balanceStatus, buildWealthModel, quickRead } from "./wealthModel";
+import { balanceStatus, buildWealthModel, quickRead, topCategorySignal } from "./wealthModel";
 
 function accountCards(dashboard = mockDashboard("demo", "2026-10")) {
   return dashboard.overview.accounts;
@@ -31,6 +31,29 @@ describe("balanceStatus", () => {
     expect(balanceStatus(2, 1)).toBe("partial");
     expect(balanceStatus(2, 2)).toBe("complete");
     expect(balanceStatus(1, 1)).toBe("complete");
+  });
+});
+
+describe("topCategorySignal", () => {
+  it("ranks the largest gross category and reports its share", () => {
+    const categories = mockDashboard("demo", "2026-10").summary.categories;
+    const ranked = [...categories]
+      .filter((category) => category.grossMinor > 0)
+      .sort((a, b) => b.grossMinor - a.grossMinor || a.key.localeCompare(b.key));
+    const signal = topCategorySignal(categories);
+
+    expect(signal).not.toBeNull();
+    expect(signal?.key).toBe(ranked[0].key);
+    expect(signal?.grossMinor).toBe(ranked[0].grossMinor);
+    expect(signal?.share).toBeGreaterThan(0);
+    expect(signal?.share).toBeLessThanOrEqual(100);
+  });
+
+  it("returns null when nothing was spent", () => {
+    expect(topCategorySignal([])).toBeNull();
+    expect(
+      topCategorySignal([{ key: "Dining", grossMinor: 0, refundsMinor: 0, netMinor: 0, count: 0 }]),
+    ).toBeNull();
   });
 });
 

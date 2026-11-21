@@ -89,12 +89,21 @@ export function LedgerView({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<LedgerRow | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const restoreFocusId = useRef<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [exportConfirm, setExportConfirm] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const tableWrapRef = useRef<HTMLDivElement>(null);
 
+  const searchInitialized = useRef(false);
   useEffect(() => {
+    // The mount-time run already agrees with the empty initial state. Running
+    // the debounce then would reset a page the user opened within 250ms.
+    if (!searchInitialized.current) {
+      searchInitialized.current = true;
+      return;
+    }
     const timeout = window.setTimeout(() => {
       setSearch(searchInput);
       setPage(0);
@@ -305,6 +314,16 @@ export function LedgerView({
   const latest = dashboard.latestActivity;
 
   const bodyRows = table.getRowModel().rows;
+  const eligibleSubtotalText = subtotalLabel(
+    result?.subtotals ?? [],
+    "eligibleMinor",
+    "eligibleCount",
+  );
+  const pendingSubtotalText = subtotalLabel(
+    result?.subtotals ?? [],
+    "pendingMinor",
+    "pendingCount",
+  );
   const dateGroups: Array<{ date: string; rows: Row<LedgerRow>[] }> = [];
   if (grouped) {
     for (const row of bodyRows) {
@@ -315,24 +334,89 @@ export function LedgerView({
     }
   }
 
-  const renderRow = (row: Row<LedgerRow>) => (
-    <tr
-      key={row.id}
-      className={selected?.id === row.original.id ? "row-selected" : undefined}
-      tabIndex={0}
-      onClick={() => setSelected(row.original)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          setSelected(row.original);
-        }
-      }}
-    >
-      {row.getVisibleCells().map((cell) => (
-        <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-      ))}
-    </tr>
-  );
+  const renderRow = (row: Row<LedgerRow>) => {
+    const isSelected = selected?.id === row.original.id;
+    const triggerId = `ledger-details-${row.original.id}`;
+    return (
+      <tr
+        key={row.id}
+        className={isSelected ? "row-selected" : undefined}
+        onClick={() => openDetails(row.original)}
+      >
+        {row.getVisibleCells().map((cell) => (
+          <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+        ))}
+        <td className="ledger-actions-cell">
+          <button
+            id={triggerId}
+            type="button"
+            className="ledger-details-btn"
+            aria-label={`View details for ${row.original.merchant}`}
+            aria-expanded={isSelected}
+            aria-controls={isSelected ? "ledger-detail-panel" : undefined}
+            onClick={(event) => {
+              event.stopPropagation();
+              openDetails(row.original);
+            }}
+            onFocus={(event) => ensureRowVisible(event.currentTarget)}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="m6 3.5 4.5 4.5L6 12.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </td>
+      </tr>
+    );
+  };
+
+  function openDetails(row: LedgerRow) {
+    setSelected(row);
+    setAnnouncement(`Details opened for ${row.merchant}.`);
+  }
+
+  // Focus restoration waits for the panel to unmount; doing it in a RAF can
+  // race the commit and leave focus on <body>.
+  useEffect(() => {
+    if (selected !== null) return;
+    const id = restoreFocusId.current;
+    if (!id) return;
+    restoreFocusId.current = null;
+    document.getElementById(id)?.focus();
+  }, [selected]);
+
+  function closeDetails() {
+    if (selected) restoreFocusId.current = `ledger-details-${selected.id}`;
+    setSelected(null);
+    setAnnouncement("");
+  }
+
+  function openSupplier(key: string) {
+    setMode("transactions");
+    setSearchInput(key);
+    setSearch(key);
+    setPage(0);
+  }
+
+  // The table's own day headings are sticky inside its scroll container. When
+  // focus lands on a row control that sits under those headings, nudge the
+  // scroll position so the focus ring is actually visible. scroll-padding /
+  // scroll-margin in CSS cover programmatic scrollIntoView too.
+  function ensureRowVisible(button: HTMLButtonElement) {
+    const wrap = tableWrapRef.current;
+    const row = button.closest("tr");
+    if (!wrap || !row) return;
+    const wrapBox = wrap.getBoundingClientRect();
+    const rowBox = row.getBoundingClientRect();
+    const theadHeight = wrap.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+    const dayHeader = row.parentElement?.querySelector<HTMLElement>(":scope > .ledger-day-row");
+    const dayHeight = dayHeader && dayHeader !== row ? dayHeader.getBoundingClientRect().height : 0;
+    const visibleTop = wrapBox.top + theadHeight + dayHeight + 4;
+    if (rowBox.top < visibleTop) {
+      wrap.scrollTop -= visibleTop - rowBox.top;
+    } else if (rowBox.bottom > wrapBox.bottom - 4) {
+      wrap.scrollTop += rowBox.bottom - (wrapBox.bottom - 4);
+    }
+  }
 
   function refreshAfterEdit() {
     setReloadToken((value) => value + 1);
@@ -559,13 +643,19 @@ export function LedgerView({
             <span>
               Eligible subtotal:{" "}
               <strong className="amount">
-                {subtotalLabel(result?.subtotals ?? [], "eligibleMinor", "eligibleCount")}
+                {eligibleSubtotalText}
+                {eligibleSubtotalText === "—" ? (
+                  <span className="sr-only"> Not reported</span>
+                ) : null}
               </strong>
             </span>
             <span>
               Pending subtotal:{" "}
               <strong className="amount">
-                {subtotalLabel(result?.subtotals ?? [], "pendingMinor", "pendingCount")}
+                {pendingSubtotalText}
+                {pendingSubtotalText === "—" ? (
+                  <span className="sr-only"> Not reported</span>
+                ) : null}
               </strong>
             </span>
             {filtersActive ? <span className="status-pill status-info">Filtered</span> : null}
@@ -576,6 +666,10 @@ export function LedgerView({
               {error}
             </p>
           ) : null}
+
+          <p className="sr-only" role="status" aria-live="polite">
+            {announcement}
+          </p>
 
           <div className={selected ? "ledger-layout" : "ledger-layout ledger-layout-full"}>
             <div className="table-wrap ledger-table-wrap" ref={tableWrapRef}>
@@ -593,6 +687,9 @@ export function LedgerView({
                             : flexRender(header.column.columnDef.header, header.getContext())}
                         </th>
                       ))}
+                      <th scope="col" className="ledger-actions-head">
+                        <span className="sr-only">Details</span>
+                      </th>
                     </tr>
                   ))}
                 </thead>
@@ -600,7 +697,7 @@ export function LedgerView({
                   dateGroups.map((group) => (
                     <tbody className="ledger-day-group" key={group.date}>
                       <tr className="ledger-day-row">
-                        <th scope="rowgroup" colSpan={columns.length}>
+                        <th scope="rowgroup" colSpan={columns.length + 1}>
                           <span className="ledger-day-inner">
                             <span className="ledger-day-date">{formatDateOnly(group.date)}</span>
                             <span className="ledger-day-subtotal">
@@ -663,7 +760,7 @@ export function LedgerView({
                 row={selected}
                 readOnly={readOnly}
                 onSaved={refreshAfterEdit}
-                onClose={() => setSelected(null)}
+                onClose={closeDetails}
               />
             ) : null}
           </div>
@@ -673,6 +770,7 @@ export function LedgerView({
               variant="ghost"
               className="btn-small"
               disabled={page === 0}
+              title={page === 0 ? "You’re on the first page" : undefined}
               onClick={() => setPage((value) => Math.max(0, value - 1))}
             >
               Previous
@@ -684,6 +782,7 @@ export function LedgerView({
               variant="ghost"
               className="btn-small"
               disabled={page + 1 >= totalPages}
+              title={page + 1 >= totalPages ? "You’re on the last page" : undefined}
               onClick={() => setPage((value) => value + 1)}
             >
               Next
@@ -723,34 +822,43 @@ export function LedgerView({
                   <th scope="col">Refunds</th>
                   <th scope="col">Net</th>
                   <th scope="col">Transactions</th>
+                  <th scope="col" className="ledger-actions-head">
+                    <span className="sr-only">Details</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {dashboard.summary.suppliers.map((supplier) => (
-                  <tr
-                    key={supplier.key}
-                    tabIndex={0}
-                    onClick={() => {
-                      setMode("transactions");
-                      setSearchInput(supplier.key);
-                      setSearch(supplier.key);
-                      setPage(0);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setMode("transactions");
-                        setSearchInput(supplier.key);
-                        setSearch(supplier.key);
-                        setPage(0);
-                      }
-                    }}
-                  >
+                  <tr key={supplier.key} onClick={() => openSupplier(supplier.key)}>
                     <td>{supplier.key}</td>
                     <td className="amount">{formatMoney(supplier.grossMinor)}</td>
                     <td className="amount-credit">{formatMoney(supplier.refundsMinor)}</td>
                     <td className="amount">{formatMoney(supplier.netMinor)}</td>
                     <td>{supplier.count}</td>
+                    <td className="ledger-actions-cell">
+                      <button
+                        type="button"
+                        className="ledger-details-btn"
+                        aria-label={`View transactions for ${supplier.key}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openSupplier(supplier.key);
+                        }}
+                      >
+                        <svg
+                          viewBox="0 0 16 16"
+                          fill="none"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="m6 3.5 4.5 4.5L6 12.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

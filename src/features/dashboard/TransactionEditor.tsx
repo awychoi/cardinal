@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { command, type LedgerRow, type TransactionDetail } from "../../lib/bridge";
 import { friendlyError } from "../../lib/bridge/errors";
 import { formatDateOnly, formatMoney } from "../../lib/formatting";
@@ -27,6 +27,11 @@ export function TransactionEditor({
   const [typeCorrection, setTypeCorrection] = useState("");
   const [excluded, setExcluded] = useState(false);
   const [notes, setNotes] = useState("");
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [row.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,9 +114,22 @@ export function TransactionEditor({
   }
 
   return (
-    <aside className="detail-panel" aria-labelledby="detail-title">
+    <aside
+      className="detail-panel"
+      id="ledger-detail-panel"
+      role="region"
+      aria-labelledby="detail-title"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+    >
       <div className="detail-head">
-        <h2 id="detail-title">{detail?.merchant ?? row.merchant}</h2>
+        <h2 id="detail-title" ref={headingRef} tabIndex={-1}>
+          {detail?.merchant ?? row.merchant}
+        </h2>
         <button
           type="button"
           className="icon-btn"

@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { command, type Dashboard, type SpendHistory } from "../../lib/bridge";
+import {
+  command,
+  isDepositoryAccount,
+  type AccountCard,
+  type Dashboard,
+  type SpendHistory,
+} from "../../lib/bridge";
 import { friendlyError } from "../../lib/bridge/errors";
 import {
+  connectionLabel,
   formatDateOnly,
   formatDateShort,
   formatMoney,
@@ -16,7 +23,7 @@ import { brandMarkFor } from "../../brand/logos";
 import type { Theme, ThemeMode } from "../../theme/schema";
 import { buildComposition, CategoryRing, RankedBars, toChartData, TrendBars } from "./charts";
 import { UtilizationPanel } from "./UtilizationPanel";
-import { buildWealthModel, quickRead, totalReported } from "./wealthModel";
+import { buildWealthModel, quickRead, topCategorySignal, totalReported } from "./wealthModel";
 import "./overview.css";
 
 type UpcomingEntry = Dashboard["overview"]["upcoming"]["entries"][number];
@@ -50,6 +57,23 @@ function accountTypeLabel(value: string): string {
     default:
       return "account";
   }
+}
+
+/** A short AT description for a glance tile: the visible numbers and state,
+ * never a paragraph. The button name stays "Open activity for …". */
+function glanceDescription(account: AccountCard, due: UpcomingEntry | undefined): string {
+  const parts = [
+    account.currentBalanceMinor === null
+      ? "Balance not reported"
+      : `${formatMoney(account.currentBalanceMinor, account.currency)} balance reported${
+          account.balanceStale ? ", may be stale" : ""
+        }`,
+  ];
+  if (due) parts.push(`next payment ${formatDateShort(due.dueDate)}`);
+  else if (!isDepositoryAccount(account.accountType)) parts.push("no due date reported");
+  parts.push(connectionLabel(account.connectionStatus, account.sourceKind));
+  parts.push(account.included ? "included in totals" : "excluded from totals");
+  return `${parts.join(". ")}.`;
 }
 
 interface AttentionItem {
@@ -86,6 +110,7 @@ export function OverviewView({
   const [deeperOpen, setDeeperOpen] = useState(false);
   const [dueExpanded, setDueExpanded] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  const revealRequested = useRef(false);
 
   const trendEnabled = theme.options.overview.trend !== "hidden";
   const showComposition = theme.options.overview.composition !== "hidden";
@@ -95,6 +120,7 @@ export function OverviewView({
   );
   const model = useMemo(() => buildWealthModel(dashboard, history), [dashboard, history]);
   const readItems = useMemo(() => quickRead(model, dashboard), [model, dashboard]);
+  const topSignal = useMemo(() => topCategorySignal(summary.categories), [summary.categories]);
 
   useEffect(() => {
     if (!trendEnabled) {
@@ -200,12 +226,33 @@ export function OverviewView({
   }
   const visibleAttention = attention.slice(0, 3);
 
+  function focusDetails() {
+    const details = detailsRef.current;
+    if (!details) return;
+    const summary = details.querySelector<HTMLElement>("summary");
+    summary?.focus({ preventScroll: true });
+    const calm =
+      document.documentElement.dataset.motion === "calm" ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    details.scrollIntoView?.({ behavior: calm ? "auto" : "smooth", block: "start" });
+  }
+
   function revealDetails() {
     setDeeperOpen(true);
-    window.setTimeout(() => {
-      detailsRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    }, 0);
+    revealRequested.current = true;
+    // Already open: the state will not change, so reveal now rather than wait
+    // for an effect that will not run.
+    if (deeperOpen) {
+      revealRequested.current = false;
+      focusDetails();
+    }
   }
+
+  useEffect(() => {
+    if (!deeperOpen || !revealRequested.current) return;
+    revealRequested.current = false;
+    focusDetails();
+  }, [deeperOpen]);
 
   if (overview.accounts.length === 0) {
     return (
@@ -227,24 +274,49 @@ export function OverviewView({
   const hasKnownBalance = model.usdReportedCount > 0;
   const cashKnown = totalReported(model.cashStatus);
   const cardKnown = totalReported(model.cardStatus);
-  const cashDisplay = cashKnown ? formatMoney(overview.balances.cashKnownTotalMinor) : "—";
-  const cardDisplay = cardKnown ? formatMoney(overview.balances.cardKnownTotalMinor) : "—";
+  const cashEmpty = model.cashStatus === "empty";
+  const cardEmpty = model.cardStatus === "empty";
+  const cashText = cashEmpty
+    ? "No cash accounts"
+    : cashKnown
+      ? formatMoney(overview.balances.cashKnownTotalMinor)
+      : "Not reported";
+  const cardText = cardEmpty
+    ? "No cards tracked"
+    : cardKnown
+      ? formatMoney(overview.balances.cardKnownTotalMinor)
+      : "Not reported";
+  const creditText =
+    model.availableCreditMinor === null ? "Not reported" : formatMoney(model.availableCreditMinor);
+  const usdAccountCount = model.usdCashCount + model.usdCardCount;
+  const completeness =
+    model.netStatus === "empty"
+      ? "No USD balances yet"
+      : model.netStatus === "complete"
+        ? `Complete · all ${usdAccountCount} balance${usdAccountCount === 1 ? "" : "s"} reported`
+        : model.netStatus === "partial"
+          ? `Partial · ${model.usdMissingBalances} of ${usdAccountCount} balances not reported`
+          : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
+  const cashShare = model.cashShare;
+  const debtShare = cashShare === null ? null : 100 - cashShare;
   const beamAria = [
     cashKnown
-      ? `Known cash ${formatMoney(overview.balances.cashKnownTotalMinor)}`
+      ? `Known cash ${formatMoney(overview.balances.cashKnownTotalMinor)}${
+          cashShare === null ? "" : `, ${cashShare}% of known balances`
+        }`
       : "Cash not reported",
     cardKnown
-      ? `card balances ${formatMoney(overview.balances.cardKnownTotalMinor)}`
+      ? `card balances ${formatMoney(overview.balances.cardKnownTotalMinor)}${
+          debtShare === null ? "" : `, ${debtShare}% of known balances`
+        }`
       : "card balances not reported",
   ].join(" and ");
   const beamNote =
     model.cashStatus === "not_reported" && model.cardStatus === "not_reported"
-      ? "No balances reported yet"
+      ? "Split needs reported balances"
       : model.cashStatus === "not_reported"
-        ? "Cash not reported yet"
-        : "Card balances not reported yet";
-  const cashShare = model.cashShare;
-  const debtShare = cashShare === null ? null : 100 - cashShare;
+        ? "Split needs a cash balance"
+        : "Split needs card balances";
   const beamTotalKnownZero =
     cashKnown &&
     cardKnown &&
@@ -320,12 +392,7 @@ export function OverviewView({
                 Net position
               </h2>
               <p className="hero-asof">
-                Cash minus card balances ·{" "}
-                {model.netStatus === "complete"
-                  ? "complete"
-                  : model.netStatus === "partial"
-                    ? "partial"
-                    : "Not reported"}
+                Cash minus card balances · <span className="hero-asof-status">{completeness}</span>
               </p>
             </div>
             <span className="hero-spark" aria-hidden="true">
@@ -339,8 +406,12 @@ export function OverviewView({
               </svg>
             </span>
           </div>
-          <p className={`hero-value${hasKnownBalance && net < 0 ? " hero-value-negative" : ""}`}>
-            {hasKnownBalance ? formatSignedMoney(net) : "—"}
+          <p
+            className={`hero-value${
+              !hasKnownBalance ? " hero-value-unknown" : net < 0 ? " hero-value-negative" : ""
+            }`}
+          >
+            {hasKnownBalance ? formatSignedMoney(net) : "Not reported"}
           </p>
           <p className="hero-story">
             {!hasKnownBalance
@@ -369,13 +440,13 @@ export function OverviewView({
                 title={cashKnown ? undefined : "Cash balance not reported"}
               >
                 <span className="beam-dot" aria-hidden="true" />
-                Cash <strong>{cashDisplay}</strong>
+                Cash <strong>{cashText}</strong>
               </span>
               <span
                 className="beam-label beam-label-debt"
                 title={cardKnown ? undefined : "Card balances not reported"}
               >
-                <strong>{cardDisplay}</strong> card balances
+                Card balances <strong>{cardText}</strong>
                 <span className="beam-dot" aria-hidden="true" />
               </span>
             </div>
@@ -387,7 +458,7 @@ export function OverviewView({
               {cashShare === null || debtShare === null ? (
                 <span className="wealth-beam-note">{beamNote}</span>
               ) : beamTotalKnownZero ? (
-                <span className="wealth-beam-note">Both sides reported $0.00</span>
+                <span className="wealth-beam-note">Known balances total $0.00</span>
               ) : (
                 <>
                   <span className="wealth-beam-cash" style={{ width: `${cashShare}%` }} />
@@ -412,32 +483,30 @@ export function OverviewView({
           <div className="hero-mini-stats">
             <div className="hero-mini">
               <span className="hero-mini-label">Cash on hand</span>
-              <strong>{cashDisplay}</strong>
+              <strong className={cashEmpty || !cashKnown ? "is-unknown" : undefined}>
+                {cashText}
+              </strong>
               <span className="hero-mini-note">
-                {model.cashStatus === "not_reported"
-                  ? "Not reported"
-                  : model.usdCashCount === 0
-                    ? "No cash account yet"
-                    : `${model.usdCashReportedCount} of ${model.usdCashCount} reported`}
+                {cashEmpty
+                  ? "Add a bank account"
+                  : `${model.usdCashReportedCount} of ${model.usdCashCount} reported`}
               </span>
             </div>
             <div className="hero-mini">
               <span className="hero-mini-label">Card balances</span>
-              <strong>{cardDisplay}</strong>
+              <strong className={cardEmpty || !cardKnown ? "is-unknown" : undefined}>
+                {cardText}
+              </strong>
               <span className="hero-mini-note">
-                {model.cardStatus === "not_reported"
-                  ? "Not reported"
-                  : model.usdCardCount === 0
-                    ? "No cards tracked"
-                    : `${model.usdCardReportedCount} of ${model.usdCardCount} USD cards reported`}
+                {cardEmpty
+                  ? "Add a card to track borrowing"
+                  : `${model.usdCardReportedCount} of ${model.usdCardCount} USD cards reported`}
               </span>
             </div>
             <div className="hero-mini">
               <span className="hero-mini-label">Available credit</span>
-              <strong>
-                {model.availableCreditMinor === null
-                  ? "—"
-                  : formatMoney(model.availableCreditMinor)}
+              <strong className={model.availableCreditMinor === null ? "is-unknown" : undefined}>
+                {creditText}
               </strong>
               <span className="hero-mini-note">
                 {model.utilizationPercent === null
@@ -477,18 +546,51 @@ export function OverviewView({
               </li>
             ))}
           </ol>
-          <div className="quick-read-foot">
-            <p className="fine-print">Estimates use posted activity only. Not financial advice.</p>
-            {attention.length > 0 ? (
-              <button type="button" className="link-button" onClick={revealDetails}>
-                See what needs attention
-              </button>
+          <div className="quick-read-signal">
+            <div className="quick-read-signal-head">
+              <span>{topSignal ? "Top category" : "Month signal"}</span>
+              <span>
+                {topSignal ? `${topSignal.share}% of posted spending` : "No posted spending"}
+              </span>
+            </div>
+            {topSignal ? (
+              <>
+                <strong>{topSignal.key}</strong>
+                <span className="quick-read-signal-amount">
+                  {formatMoney(topSignal.grossMinor)}
+                </span>
+                <span className="quick-read-meter" aria-hidden="true">
+                  <span style={{ width: `${topSignal.share}%` }} />
+                </span>
+              </>
             ) : (
-              <span className="quiet-status">
-                <span className="dot dot-success" aria-hidden="true" /> Everything reported looks
-                current
+              <span className="quick-read-signal-quiet">
+                Nothing posted this month yet. The ledger fills as activity arrives.
               </span>
             )}
+          </div>
+          {!topSignal ? (
+            <img
+              className="quick-read-watermark"
+              src={brandMarkFor(mode)}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+            />
+          ) : null}
+          <div className="quick-read-foot">
+            <p className="fine-print">Estimates use posted activity only. Not financial advice.</p>
+            <div className="quick-read-foot-actions">
+              <button type="button" className="link-button" onClick={revealDetails}>
+                The numbers behind this →
+              </button>
+              {attention.length === 0 ? (
+                <span className="quiet-status">
+                  <span className="dot dot-success" aria-hidden="true" /> Everything reported looks
+                  current
+                </span>
+              ) : null}
+            </div>
           </div>
         </aside>
 
@@ -523,6 +625,7 @@ export function OverviewView({
                         className="glance-account"
                         onClick={() => onOpenAccount?.(account.accountId)}
                         aria-label={`Open activity for ${account.displayName}`}
+                        aria-describedby={`glance-cash-desc-${account.accountId}`}
                       >
                         <span className="glance-avatar glance-avatar-cash" aria-hidden="true">
                           <AccountKindIcon kind="cash" />
@@ -535,10 +638,15 @@ export function OverviewView({
                           </span>
                         </span>
                         <span className="glance-money">
-                          {account.currentBalanceMinor === null
-                            ? "Unknown"
-                            : formatMoney(account.currentBalanceMinor, account.currency)}
+                          {account.currentBalanceMinor === null ? (
+                            <span className="is-unknown">Not reported</span>
+                          ) : (
+                            formatMoney(account.currentBalanceMinor, account.currency)
+                          )}
                           {account.balanceStale ? <small>stale</small> : null}
+                        </span>
+                        <span className="sr-only" id={`glance-cash-desc-${account.accountId}`}>
+                          {glanceDescription(account, undefined)}
                         </span>
                       </button>
                     </li>
@@ -580,6 +688,7 @@ export function OverviewView({
                           className="glance-account"
                           onClick={() => onOpenAccount?.(account.accountId)}
                           aria-label={`Open activity for ${account.displayName}`}
+                          aria-describedby={`glance-card-desc-${account.accountId}`}
                         >
                           <span className="glance-avatar glance-avatar-card" aria-hidden="true">
                             <AccountKindIcon kind="card" />
@@ -588,17 +697,24 @@ export function OverviewView({
                             <span className="glance-name">{account.displayName}</span>
                             <span className="glance-meta">
                               {due
-                                ? `Due ${formatDateShort(due.dueDate)}`
+                                ? `Due ${formatDateShort(due.dueDate)}${
+                                    account.lastFour ? ` · •••• ${account.lastFour}` : ""
+                                  }`
                                 : account.lastFour
                                   ? `•••• ${account.lastFour}`
                                   : "No due date"}
                             </span>
                           </span>
                           <span className="glance-money">
-                            {account.currentBalanceMinor === null
-                              ? "Unknown"
-                              : formatMoney(account.currentBalanceMinor, account.currency)}
+                            {account.currentBalanceMinor === null ? (
+                              <span className="is-unknown">Not reported</span>
+                            ) : (
+                              formatMoney(account.currentBalanceMinor, account.currency)
+                            )}
                             {account.balanceStale ? <small>stale</small> : null}
+                          </span>
+                          <span className="sr-only" id={`glance-card-desc-${account.accountId}`}>
+                            {glanceDescription(account, due)}
                           </span>
                         </button>
                       </li>
@@ -627,19 +743,31 @@ export function OverviewView({
             <div>
               <p className="eyebrow">Cash timing</p>
               <h2 id="due-title">Coming up</h2>
-              <p className="fine-print">
-                Reported card payments · next {overview.upcoming.windowDays} days ·{" "}
-                {overview.upcoming.unknownAmountCount > 0
-                  ? `${overview.upcoming.unknownAmountCount} amount${
-                      overview.upcoming.unknownAmountCount === 1 ? "" : "s"
-                    } not reported`
-                  : "all reported amounts known"}
-              </p>
+              {entries.length === 0 ? (
+                <p className="fine-print due-subtitle">
+                  <span>No payments reported · next {overview.upcoming.windowDays} days</span>
+                </p>
+              ) : (
+                <p className="fine-print due-subtitle">
+                  <span>Reported card payments · next {overview.upcoming.windowDays} days ·</span>
+                  <span className="due-subtitle-status">
+                    {overview.upcoming.unknownAmountCount > 0
+                      ? `${overview.upcoming.unknownAmountCount} amount${
+                          overview.upcoming.unknownAmountCount === 1 ? "" : "s"
+                        } not reported`
+                      : "all reported amounts known"}
+                  </span>
+                </p>
+              )}
             </div>
-            <strong className="due-total">
-              {formatMoney(overview.upcoming.knownTotalMinor)}
-              <span className="due-total-currency"> known</span>
-            </strong>
+            {entries.length === 0 ? (
+              <strong className="due-total due-total-empty">No payments</strong>
+            ) : (
+              <strong className="due-total">
+                {formatMoney(overview.upcoming.knownTotalMinor)}
+                <span className="due-total-currency">known</span>
+              </strong>
+            )}
           </header>
 
           <ol className="due-strip" aria-hidden="true">
@@ -670,7 +798,7 @@ export function OverviewView({
                 <span>Due</span>
                 <span>Account</span>
                 <span>Balance</span>
-                <span>Min</span>
+                <span>Min due</span>
               </p>
               <ul className="due-list" id="upcoming-payment-list" aria-label="Upcoming payments">
                 {visibleEntries.map((entry: UpcomingEntry, index) => {
@@ -686,7 +814,7 @@ export function OverviewView({
                       <span className={`due-item-balance${balance === null ? " due-unknown" : ""}`}>
                         <span className="sr-only">current balance </span>
                         {balance === null
-                          ? "—"
+                          ? "Not reported"
                           : formatMoney(balance, account?.currency ?? entry.currency)}
                       </span>
                       <span
@@ -694,7 +822,7 @@ export function OverviewView({
                       >
                         <span className="sr-only">minimum due </span>
                         {entry.amountMinor === null ? (
-                          "not reported"
+                          "Not reported"
                         ) : (
                           <>
                             {formatMoney(entry.amountMinor, entry.currency)}
@@ -775,7 +903,13 @@ export function OverviewView({
                 </span>
                 <span>
                   <small>Typical month</small>
-                  {model.typicalMonthMinor === null ? "—" : formatMoney(model.typicalMonthMinor)}
+                  {model.typicalMonthMinor === null ? (
+                    <>
+                      —<span className="sr-only"> Not reported</span>
+                    </>
+                  ) : (
+                    formatMoney(model.typicalMonthMinor)
+                  )}
                 </span>
               </div>
             </div>
@@ -816,7 +950,7 @@ export function OverviewView({
           <summary>
             <span className="wealth-details-copy">
               <span className="eyebrow">The deeper picture</span>
-              <strong>Limits, row counts, health, and currencies</strong>
+              <strong>Limits, connection health, and currencies</strong>
             </span>
             <span className="wealth-details-open">Open</span>
             <span className="wealth-details-close">Close</span>

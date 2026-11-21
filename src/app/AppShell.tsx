@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   command,
   isDepositoryAccount,
@@ -144,12 +144,54 @@ export function AppShell({
     section: SettingsSectionId;
     accountsTab?: AccountsTabId;
   } | null>(null);
+  const [liveMessage, setLiveMessage] = useState("");
+  const mainRef = useRef<HTMLElement>(null);
+  const previousView = useRef<View | null>(null);
+  const previousMonth = useRef<string | null>(null);
   const demo = vault.mode === "demo";
   // There is no ledger beyond the current month; browsing into the future only
   // shows empty months that can never have data.
   const atCurrentMonth = dashboard ? dashboard.month >= dashboard.currentMonth : true;
   const navigationStyle = vault.settings?.navigation ?? "sidebar";
   const sidebar = navigationStyle === "sidebar";
+
+  // A view switch is a page change: move focus into the new content rather
+  // than leaving it on a button and letting the next Tab start from the top.
+  // The first render is deliberately skipped so loading the app never steals
+  // focus from the opening screen.
+  useEffect(() => {
+    if (previousView.current === null) {
+      previousView.current = view;
+      return;
+    }
+    if (previousView.current === view) return;
+    previousView.current = view;
+    setLiveMessage(VIEWS.find((item) => item.id === view)?.label ?? view);
+    const focusMain = () => {
+      mainRef.current?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: "auto" });
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      const frame = window.requestAnimationFrame(focusMain);
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const timeout = window.setTimeout(focusMain, 0);
+    return () => window.clearTimeout(timeout);
+  }, [view]);
+
+  useEffect(() => {
+    const nextMonth = dashboard?.month;
+    if (!nextMonth) return;
+    if (previousMonth.current === null) {
+      previousMonth.current = nextMonth;
+      return;
+    }
+    if (previousMonth.current === nextMonth) return;
+    previousMonth.current = nextMonth;
+    setLiveMessage(
+      `${monthLabel(nextMonth)}${nextMonth === dashboard?.currentMonth ? ", current month" : ""}`,
+    );
+  }, [dashboard?.month, dashboard?.currentMonth]);
 
   useEffect(() => {
     if (demo) {
@@ -324,9 +366,9 @@ export function AppShell({
   const lockButton = (
     <Button
       variant="ghost"
-      aria-label="Lock now"
+      aria-label={demo ? "Exit demo" : "Lock now"}
       className="lock-button"
-      onClick={() => void onLock()}
+      onClick={() => void (demo ? onExitDemo() : onLock())}
     >
       {demo ? "Exit demo" : "Lock"}
     </Button>
@@ -341,13 +383,30 @@ export function AppShell({
     (account) => !isDepositoryAccount(account.accountType),
   );
   const wealth = dashboard ? buildWealthModel(dashboard, null) : null;
+  const noAccounts = includedAccounts.length === 0;
   const cashKnown = wealth ? totalReported(wealth.cashStatus) : false;
   const cardKnown = wealth ? totalReported(wealth.cardStatus) : false;
   const netKnown =
     wealth !== null && wealth.netStatus !== "not_reported" && wealth.netStatus !== "empty";
-  const cashSide = balances && cashKnown ? formatMoney(balances.cashKnownTotalMinor) : "—";
-  const cardSide = balances && cardKnown ? formatMoney(balances.cardKnownTotalMinor) : "—";
-  const netSide = balances && netKnown ? formatSignedMoney(balances.netPositionMinor) : "—";
+  const usdAccountCount = wealth ? wealth.usdCashCount + wealth.usdCardCount : 0;
+  const completeness =
+    wealth === null
+      ? ""
+      : noAccounts
+        ? "No accounts yet"
+        : wealth.netStatus === "empty"
+          ? "No USD balances yet"
+          : wealth.netStatus === "complete"
+            ? `Complete · all ${usdAccountCount} balance${usdAccountCount === 1 ? "" : "s"} reported`
+            : wealth.netStatus === "partial"
+              ? `Partial · ${wealth.usdMissingBalances} of ${usdAccountCount} balances not reported`
+              : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
+  const cashSide =
+    balances && !noAccounts && cashKnown ? formatMoney(balances.cashKnownTotalMinor) : "—";
+  const cardSide =
+    balances && !noAccounts && cardKnown ? formatMoney(balances.cardKnownTotalMinor) : "—";
+  const netSide =
+    balances && !noAccounts && netKnown ? formatSignedMoney(balances.netPositionMinor) : "—";
 
   const sideNet = dashboard ? (
     <div className="side-net" aria-label="Current net position">
@@ -356,28 +415,41 @@ export function AppShell({
         <span className="side-net-asof">current</span>
       </div>
       <strong
-        className={`side-net-value${netKnown && balances && balances.netPositionMinor < 0 ? " is-negative" : ""}`}
+        className={`side-net-value${!netKnown ? " is-unknown" : ""}${
+          netKnown && balances && balances.netPositionMinor < 0 ? " is-negative" : ""
+        }`}
       >
         {netSide}
       </strong>
+      {!netKnown && !noAccounts ? <span className="side-net-value-note">Not reported</span> : null}
       <div className="side-net-split">
         <span>
           <span className="side-net-key">Cash</span>
-          <span>{cashSide}</span>
+          <span className={cashKnown && !noAccounts ? undefined : "side-net-unknown"}>
+            {cashSide}
+            {cashKnown && !noAccounts ? null : <span className="sr-only"> Not reported</span>}
+          </span>
         </span>
         <span>
           <span className="side-net-key">Owed</span>
-          <span>{cardSide}</span>
+          <span className={cardKnown && !noAccounts ? undefined : "side-net-unknown"}>
+            {cardSide}
+            {cardKnown && !noAccounts ? null : <span className="sr-only"> Not reported</span>}
+          </span>
         </span>
       </div>
       <div className="side-net-foot">
-        {cashAccounts.length} cash · {cardAccounts.length} card
-        {cardAccounts.length === 1 ? "" : "s"}
-        {wealth?.netStatus === "partial"
-          ? " · some missing"
-          : wealth?.netStatus === "not_reported"
-            ? " · not reported"
-            : ""}
+        {noAccounts ? (
+          <span>{completeness}</span>
+        ) : (
+          <>
+            <span>
+              {cashAccounts.length} cash · {cardAccounts.length} card
+              {cardAccounts.length === 1 ? "" : "s"}
+            </span>
+            <span className="side-net-completeness">{completeness}</span>
+          </>
+        )}
       </div>
       <button type="button" className="side-add" onClick={addAccount}>
         <span aria-hidden="true">+</span> Add an account
@@ -393,8 +465,22 @@ export function AppShell({
 
   return (
     <div className={`app ${sidebar ? "app-sidebar" : "app-topbar"}`} data-nav={navigationStyle}>
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault();
+          mainRef.current?.focus({ preventScroll: true });
+          window.scrollTo({ top: 0, behavior: "auto" });
+        }}
+      >
+        Skip to content
+      </a>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {liveMessage}
+      </div>
       {sidebar ? (
-        <aside className="sidebar">
+        <aside className="sidebar" aria-label="Ledger sidebar">
           <div className="sidebar-head">{brand}</div>
           {sideNet}
           {navigation}
@@ -410,7 +496,11 @@ export function AppShell({
                   aria-hidden="true"
                 />
                 <span className="side-status-label">
-                  {demo ? "Synthetic demo ledger" : "Encrypted ledger"}
+                  {demo
+                    ? "Synthetic demo ledger"
+                    : connectionError
+                      ? "Encrypted ledger · attention needed"
+                      : "Encrypted ledger"}
                 </span>
               </div>
               <span className="side-version">
@@ -442,6 +532,7 @@ export function AppShell({
                 type="button"
                 className="icon-btn"
                 aria-label="Previous month"
+                title={!dashboard ? "The dashboard is still loading" : undefined}
                 disabled={!dashboard}
                 onClick={() => dashboard && setMonth(dashboard.previousMonth)}
               >
@@ -459,6 +550,13 @@ export function AppShell({
                 type="button"
                 className="icon-btn"
                 aria-label="Next month"
+                title={
+                  !dashboard
+                    ? "The dashboard is still loading"
+                    : atCurrentMonth
+                      ? "You’re viewing the current month"
+                      : undefined
+                }
                 disabled={!dashboard || atCurrentMonth}
                 onClick={() => dashboard && setMonth(dashboard.nextMonth)}
               >
@@ -467,6 +565,13 @@ export function AppShell({
               <button
                 type="button"
                 className="btn btn-ghost btn-small this-month"
+                title={
+                  !dashboard
+                    ? "The dashboard is still loading"
+                    : dashboard.month === dashboard.currentMonth
+                      ? "You’re viewing the current month"
+                      : undefined
+                }
                 disabled={!dashboard || dashboard.month === dashboard.currentMonth}
                 onClick={() => setMonth(null)}
               >
@@ -491,13 +596,19 @@ export function AppShell({
               <button
                 type="button"
                 className="btn btn-secondary btn-small"
+                title={syncing ? "A sync is already running" : undefined}
                 onClick={() => void runSyncNow()}
                 disabled={syncing}
               >
                 {syncing ? "Syncing…" : "Sync now"}
               </button>
             ) : (
-              <button type="button" className="btn btn-secondary btn-small" disabled>
+              <button
+                type="button"
+                className="btn btn-secondary btn-small"
+                title={demo ? "Demo mode has no provider to sync" : "No provider connected"}
+                disabled
+              >
                 Sync now
               </button>
             )}
@@ -507,11 +618,11 @@ export function AppShell({
         </header>
 
         {demo ? (
-          <div className="demo-banner demo-banner-strong" role="status">
-            <strong>Demo mode — synthetic data.</strong>
-            <span>
-              {" "}
-              Separate database. No real ledger, provider, Keychain, import, backup, or export.
+          <div className="demo-banner demo-banner-demo" role="status">
+            <span className="demo-banner-copy">
+              <strong>Demo mode — synthetic data.</strong>
+              {usingMock ? " Mock desktop bridge — browser test mode." : ""} Separate database. No
+              real ledger, provider, Keychain, import, backup, or export.
             </span>
             <span className="banner-actions">
               {resetConfirm ? (
@@ -555,9 +666,7 @@ export function AppShell({
               )}
             </span>
           </div>
-        ) : null}
-
-        {usingMock ? (
+        ) : usingMock ? (
           <div className="demo-banner" role="status">
             Mock desktop bridge — browser test mode. No real ledger is open.
           </div>
@@ -579,7 +688,7 @@ export function AppShell({
 
         {sidebar ? null : navigation}
 
-        <main className="content" id="main-content">
+        <main className="content" id="main-content" ref={mainRef} tabIndex={-1}>
           {error ? (
             <section className="empty-state" role="alert">
               <h1>Dashboard unavailable</h1>

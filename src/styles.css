@@ -410,6 +410,22 @@ select {
   align-items: center;
 }
 
+.demo-banner-demo {
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.demo-banner-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.demo-banner-demo strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .nav {
   display: flex;
   gap: 2px;
@@ -503,10 +519,13 @@ select {
   font-size: 11px;
 }
 .link-button {
+  align-items: center;
   background: none;
   border: 0;
-  padding: 0;
+  display: inline-flex;
   font: inherit;
+  min-height: 28px;
+  padding: 1px 0;
   color: var(--accent-ink);
   text-decoration: underline;
   text-underline-offset: 0.16em;
@@ -1068,6 +1087,36 @@ select {
 .field-error {
   color: var(--danger);
   font-size: 11px;
+}
+.field-required {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+}
+.form-error-summary {
+  background: var(--danger-soft);
+  border: var(--border-width) solid var(--danger-line);
+  border-radius: var(--radius-control);
+  color: var(--text);
+  display: grid;
+  font-size: 11.5px;
+  gap: 4px;
+  padding: 10px 12px;
+}
+.form-error-summary p {
+  font-weight: 650;
+  margin: 0;
+}
+.form-error-summary ul {
+  color: var(--text-2);
+  margin: 0;
+  padding-left: 18px;
+}
+.form-error-summary a {
+  color: var(--danger);
+  font-weight: 600;
 }
 .checkbox-row {
   display: flex;
@@ -1996,12 +2045,16 @@ h3 {
   border-radius: var(--radius-control);
 }
 .mode-seg button {
+  align-items: center;
   border: 0;
   background: transparent;
   color: var(--muted);
+  display: inline-flex;
   font: inherit;
-  font-size: 11px;
-  padding: 4px 10px;
+  font-size: 11.5px;
+  justify-content: center;
+  min-height: 30px;
+  padding: 4px 12px;
   border-radius: calc(var(--radius-control) - 2px);
   cursor: pointer;
 }
@@ -2120,6 +2173,12 @@ h3 {
 :root[data-motion="calm"] .cardface,
 :root[data-motion="calm"] .theme-card,
 :root[data-motion="calm"] .mode-seg button,
+:root[data-motion="calm"] .skip-link,
+:root[data-motion="calm"] .bank-card,
+:root[data-motion="calm"] .card-account,
+:root[data-motion="calm"] .wealth-beam-cash,
+:root[data-motion="calm"] .wealth-beam-debt,
+:root[data-motion="calm"] .quick-read,
 :root[data-motion="calm"] .ledger-table tbody tr {
   transition: none;
 }
@@ -2133,6 +2192,12 @@ h3 {
   .cardface,
   .theme-card,
   .mode-seg button,
+  .skip-link,
+  .bank-card,
+  .card-account,
+  .wealth-beam-cash,
+  .wealth-beam-debt,
+  .quick-read,
   .ledger-table tbody tr {
     transition: none;
   }

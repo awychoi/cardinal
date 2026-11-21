@@ -13,6 +13,40 @@
   background: var(--bg);
 }
 
+/* Keyboard users get a real bypass before the sidebar; it stays hidden until
+   focused so the visual frame is unchanged. */
+.skip-link {
+  background: var(--surface);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  left: 12px;
+  padding: 8px 12px;
+  position: fixed;
+  top: 10px;
+  transform: translateY(calc(-100% - 16px));
+  transition: transform var(--motion-fast) var(--ease);
+  z-index: 100;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  transform: translateY(0);
+}
+
+/* Programmatic focus target for the skip link and view transitions: the main
+   region itself is not interactive, so a ring around the whole page adds noise.
+*/
+.content:focus,
+.content:focus-visible {
+  outline: none;
+}
+
 .app-main {
   background:
     radial-gradient(
@@ -69,15 +103,22 @@
   box-shadow: var(--shadow-1);
 }
 
+.side-net > * {
+  position: relative;
+  z-index: 1;
+}
+
 .side-net::after {
   content: "";
   position: absolute;
-  inset: auto -20px -32px auto;
-  width: 92px;
-  height: 92px;
+  inset: 50% -54px auto auto;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
   pointer-events: none;
+  transform: translateY(-50%);
+  z-index: 0;
 }
 
 .side-net-head {
@@ -89,16 +130,16 @@
 
 .side-net-label {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .side-net-asof {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 9.5px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -113,8 +154,25 @@
   margin: 1px 0 4px;
 }
 
+.side-net-value.is-unknown {
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  margin-bottom: 2px;
+}
+
 .side-net-value.is-negative {
   color: var(--accent-ink);
+}
+
+.side-net-value-note {
+  color: var(--text-2);
+  font-size: 10.5px;
+  line-height: 1.35;
+  margin: -1px 0 2px;
 }
 
 .side-net-split {
@@ -124,7 +182,7 @@
   padding-top: 7px;
   border-top: 1px dashed var(--border);
   color: var(--text-2);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -135,16 +193,27 @@
 
 .side-net-key {
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
+.side-net-unknown {
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
 .side-net-foot {
   color: var(--muted);
-  font-size: 9.5px;
+  display: grid;
+  font-size: 10.5px;
+  gap: 1px;
   line-height: 1.4;
+}
+
+.side-net-completeness {
+  color: var(--text-2);
 }
 
 .side-add {
@@ -152,7 +221,7 @@
   align-items: center;
   gap: 6px;
   width: 100%;
-  min-height: 28px;
+  min-height: 30px;
   margin-top: 5px;
   padding: 0 8px;
   border: var(--border-width) dashed var(--border-strong);
@@ -160,7 +229,7 @@
   background: transparent;
   color: var(--accent-ink);
   font: inherit;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -197,9 +266,9 @@
 .nav-eyebrow {
   padding: 0 10px 4px;
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 
@@ -209,7 +278,7 @@
   gap: 10px;
   border-radius: calc(var(--radius-control) + 1px);
   color: var(--text-2);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -275,8 +344,8 @@
   background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
-  line-height: 1.5;
+  font-size: 10px;
+  line-height: 1.45;
   text-align: center;
 }
 
@@ -315,12 +384,12 @@
 .side-status {
   padding: 0 6px;
   color: var(--text-2);
-  font-size: 10.5px;
+  font-size: 12px;
 }
 
 .side-version {
   padding: 0 6px;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .dot-success {
@@ -355,9 +424,9 @@
 .month-nav-caption {
   margin-right: 3px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -374,22 +443,23 @@
 }
 
 .month-range {
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: 0.01em;
 }
 
 .month-nav .icon-btn {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  font-size: 16px;
+  font-size: 17px;
 }
 
 .month-nav .this-month {
-  min-height: 26px;
-  padding: 3px 9px;
+  min-height: 28px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .header-actions {
@@ -405,12 +475,12 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface-2) 56%, transparent);
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: 11.5px;
 }
 
 .header-actions .btn {
   border-radius: 999px;
-  min-height: 30px;
+  min-height: 32px;
 }
 
 /* ---------- Top-bar layout ---------- */
@@ -527,6 +597,7 @@
   padding: 28px 30px 56px;
   width: 100%;
   margin: 0 auto;
+  scroll-margin-top: 84px;
 }
 
 .content::before {
@@ -620,6 +691,28 @@
 }
 
 @media (max-width: 980px) {
+  /* The top-bar header has three groups; below 980 they need two quiet rows
+     rather than shaving the sync label or pushing the lock control offscreen. */
+  .app-topbar .header {
+    flex-wrap: wrap;
+    height: auto;
+    padding-block: 8px;
+    row-gap: 6px;
+  }
+
+  .app-topbar .header .brand {
+    order: 1;
+  }
+
+  .app-topbar .header-actions {
+    order: 2;
+  }
+
+  .app-topbar .month-nav {
+    margin-inline: auto;
+    order: 3;
+  }
+
   .content {
     padding: 22px 20px 44px;
   }
@@ -634,6 +727,11 @@
 
   .sync-state {
     max-width: 160px;
+  }
+
+  /* The wrapped topbar is taller, so keep the focused main heading below it. */
+  .app-topbar .content {
+    scroll-margin-top: 112px;
   }
 
   .nav {
@@ -698,6 +796,10 @@
     padding-block: 8px;
   }
 
+  .content {
+    scroll-margin-top: 112px;
+  }
+
   .month-nav {
     order: 2;
   }
@@ -752,7 +854,7 @@
 
 .header-context-kicker {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;

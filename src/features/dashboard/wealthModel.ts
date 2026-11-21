@@ -1,11 +1,11 @@
 import {
   isDepositoryAccount,
   type AccountCard,
+  type Breakdown,
   type Dashboard,
   type MonthTotal,
   type SpendHistory,
 } from "../../lib/bridge";
-import { formatMoney } from "../../lib/formatting";
 
 /**
  * Pure, presentation-level arithmetic for the wealth overview.
@@ -73,6 +73,36 @@ export function typicalMonthMinor(months: MonthTotal[]): number | null {
   const active = months.filter((month) => month.complete && month.count > 0);
   if (active.length === 0) return null;
   return Math.round(active.reduce((sum, month) => sum + month.netMinor, 0) / active.length);
+}
+
+export interface TopCategorySignal {
+  key: string;
+  /** Gross posted spending in the category, excluding refunds. */
+  grossMinor: number;
+  /** Share of all gross category spending, rounded to a whole percent. */
+  share: number;
+  count: number;
+}
+
+/**
+ * The category that took the largest share of posted gross spending this month.
+ * The ranking mirrors the composition chart: gross spend, never refunds, and a
+ * stable key tie-break so the card does not reshuffle between renders.
+ */
+export function topCategorySignal(categories: Breakdown[]): TopCategorySignal | null {
+  const ranked = categories
+    .filter((category) => category.grossMinor > 0)
+    .sort((a, b) => b.grossMinor - a.grossMinor || a.key.localeCompare(b.key));
+  if (ranked.length === 0) return null;
+  const total = ranked.reduce((sum, category) => sum + category.grossMinor, 0);
+  if (total <= 0) return null;
+  const top = ranked[0];
+  return {
+    key: top.key,
+    grossMinor: top.grossMinor,
+    share: Math.round((top.grossMinor / total) * 100),
+    count: top.count,
+  };
 }
 
 export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | null): WealthModel {
@@ -184,7 +214,6 @@ export function buildWealthModel(dashboard: Dashboard, history: SpendHistory | n
 
 export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
   const { overview, summary } = dashboard;
-  const { balances } = overview;
   const items: string[] = [];
   const hasCash = model.cashAccountCount > 0;
 
@@ -205,23 +234,6 @@ export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
     );
   } else {
     items.push("Cash is not reported yet. A missing balance stays unknown, never $0.00.");
-  }
-
-  if (model.cardAccountCount > 0) {
-    if (model.usdCardReportedCount === 0) {
-      items.push("Card balances are not reported yet, so the net position stays partial.");
-    } else if (
-      model.usdCashReportedCount > 0 &&
-      balances.cardKnownTotalMinor > balances.cashKnownTotalMinor
-    ) {
-      items.push(
-        `Card balances sit ${formatMoney(
-          balances.cardKnownTotalMinor - balances.cashKnownTotalMinor,
-        )} above known cash.`,
-      );
-    } else if (model.usdCashReportedCount > 0 && balances.cardKnownTotalMinor === 0) {
-      items.push("No card debt reported. Your whole net position is cash.");
-    }
   }
 
   if (overview.upcoming.entries.length > 0) {
@@ -246,16 +258,14 @@ export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
     );
   }
 
-  if (model.usdMissingBalances > 0) {
-    items.push(
-      `${model.usdMissingBalances} account${model.usdMissingBalances === 1 ? " has" : "s have"} no balance snapshot, so the net position is partial.`,
-    );
-  } else if (summary.pendingSubtotalMinor > 0) {
+  if (summary.pendingSubtotalMinor > 0) {
     items.push(
       "Pending activity is shown apart from posted spending and never counted as ready to spend.",
     );
   }
 
+  // Completeness and the cash-versus-card arithmetic live once, in the hero and
+  // the balance sheet. The quick read adds interpretation, not a second count.
   return items.slice(0, 3);
 }
 

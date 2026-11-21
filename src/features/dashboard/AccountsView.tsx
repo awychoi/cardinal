@@ -35,15 +35,48 @@ function statusClass(status: CardStatus): string {
 
 function balanceText(account: AccountCard): string {
   return account.currentBalanceMinor === null
-    ? "Unknown"
+    ? "Not reported"
     : formatMoney(account.currentBalanceMinor, account.currency);
 }
 
 function balanceAsOf(account: AccountCard): string {
-  if (account.currentBalanceMinor === null) return "No balance snapshot — unknown, not $0.00";
+  if (account.currentBalanceMinor === null) return "No balance snapshot · not reported";
   return `as of ${
     account.balanceRetrievedAt ? formatDateOnly(account.balanceRetrievedAt.slice(0, 10)) : "unknown"
   }${account.balanceStale ? " · stale" : ""}`;
+}
+
+/** Concise AT context for a bank tile, parallel to its visible numbers. */
+function bankTileDescription(account: AccountCard, spend: number | null): string {
+  const parts = [
+    account.currentBalanceMinor === null
+      ? "Balance not reported"
+      : `${balanceText(account)} current balance reported, ${balanceAsOf(account)}`,
+    spend === null
+      ? "Spent this month not reported"
+      : `${formatMoney(spend, account.currency)} spent this month`,
+    connectionLabel(account.connectionStatus, account.sourceKind),
+    account.included ? "Included in totals" : "Excluded from totals",
+  ];
+  return `${parts.join(". ")}.`;
+}
+
+/** Concise AT context for a card tile, parallel to its visible numbers. */
+function cardTileDescription(account: AccountCard, spend: number | null): string {
+  const parts = [
+    account.currentBalanceMinor === null
+      ? "Balance not reported"
+      : `${balanceText(account)} current balance reported${
+          account.balanceStale ? ", may be stale" : ""
+        }`,
+    spend === null
+      ? "Spent this month not reported"
+      : `${formatMoney(spend, account.currency)} spent this month`,
+    dueText(account, true),
+    connectionLabel(account.connectionStatus, account.sourceKind),
+    account.included ? "Included in totals" : "Excluded from totals",
+  ];
+  return `${parts.join(". ")}.`;
 }
 
 /** A single compact row for the full details disclosure. */
@@ -51,13 +84,18 @@ function DetailRows({
   accounts,
   kind,
   spendFor,
+  headingId,
 }: {
   accounts: AccountCard[];
   kind: "cash" | "card";
   spendFor: (account: AccountCard) => number | null;
+  headingId: string;
 }) {
   return (
-    <table className="detail-table">
+    <table className="detail-table" aria-labelledby={headingId}>
+      <caption className="sr-only">
+        {kind === "cash" ? "Cash accounts detail" : "Card accounts detail"}
+      </caption>
       <thead>
         <tr>
           <th scope="col">{kind === "cash" ? "Account" : "Card"}</th>
@@ -76,9 +114,13 @@ function DetailRows({
               <span className="fine-print"> · •••• {account.lastFour ?? "----"}</span>
             </th>
             <td>
-              {spendFor(account) === null
-                ? "—"
-                : formatMoney(spendFor(account) ?? 0, account.currency)}
+              {spendFor(account) === null ? (
+                <>
+                  —<span className="sr-only"> Not reported</span>
+                </>
+              ) : (
+                formatMoney(spendFor(account) ?? 0, account.currency)
+              )}
             </td>
             <td>{balanceText(account)}</td>
             <td>
@@ -156,14 +198,15 @@ export function AccountsView({
     model.netStatus === "not_reported" || model.netStatus === "empty"
       ? "—"
       : formatSignedMoney(balances.netPositionMinor);
+  const usdAccountCount = model.usdCashCount + model.usdCardCount;
   const netNote =
     model.netStatus === "complete"
-      ? "Cash minus card balances"
+      ? `Complete · all ${usdAccountCount} balance${usdAccountCount === 1 ? "" : "s"} reported`
       : model.netStatus === "partial"
-        ? "Known balances only — some are missing"
+        ? `Partial · ${model.usdMissingBalances} of ${usdAccountCount} balances not reported`
         : model.netStatus === "empty"
           ? "No USD accounts in totals"
-          : "Not reported — add or sync a balance";
+          : `Not reported · ${usdAccountCount} of ${usdAccountCount} balances missing`;
   const faces = theme.options.cardArt === "faces";
   const spendByAccount = new Map<string, number>(
     dashboard.accountSpend.map(
@@ -222,16 +265,22 @@ export function AccountsView({
           <span className="sheet-side-label">
             <AccountKindIcon kind="cash" /> Cash you own
           </span>
-          <strong className="sheet-side-value">{cashDisplay}</strong>
+          <strong className={`sheet-side-value${cashDisplay === "—" ? " is-unknown" : ""}`}>
+            {cashDisplay}
+            {cashDisplay === "—" ? <span className="sr-only">Not reported</span> : null}
+          </strong>
           <span className="sheet-side-note">{cashNote}</span>
         </div>
 
         <div className="sheet-net">
           <span className="eyebrow">Net position</span>
           <strong
-            className={`sheet-net-value${net < 0 && netDisplay !== "—" ? " is-negative" : ""}`}
+            className={`sheet-net-value${net < 0 && netDisplay !== "—" ? " is-negative" : ""}${
+              netDisplay === "—" ? " is-unknown" : ""
+            }`}
           >
             {netDisplay}
+            {netDisplay === "—" ? <span className="sr-only">Not reported</span> : null}
           </strong>
           {cashShare !== null && balances.cashKnownTotalMinor + balances.cardKnownTotalMinor > 0 ? (
             <div
@@ -250,7 +299,10 @@ export function AccountsView({
           <span className="sheet-side-label">
             <AccountKindIcon kind="card" /> Card balances
           </span>
-          <strong className="sheet-side-value">{cardDisplay}</strong>
+          <strong className={`sheet-side-value${cardDisplay === "—" ? " is-unknown" : ""}`}>
+            {cardDisplay}
+            {cardDisplay === "—" ? <span className="sr-only">Not reported</span> : null}
+          </strong>
           <span className="sheet-side-note">{cardNote}</span>
         </div>
       </section>
@@ -263,7 +315,10 @@ export function AccountsView({
               Bank accounts
             </h2>
           </div>
-          <strong className="account-group-total">{cashDisplay}</strong>
+          <strong className={`account-group-total${cashDisplay === "—" ? " is-unknown" : ""}`}>
+            {cashDisplay}
+            {cashDisplay === "—" ? <span className="sr-only"> Not reported</span> : null}
+          </strong>
         </header>
 
         {cashAccounts.length > 0 ? (
@@ -277,6 +332,7 @@ export function AccountsView({
                   className="bank-card"
                   onClick={() => onFilterAccount(account.accountId)}
                   aria-label={`Filter transactions to ${account.displayName}`}
+                  aria-describedby={`bank-account-desc-${account.accountId}`}
                 >
                   <span className="bank-card-top">
                     <span className="bank-kind">
@@ -293,13 +349,25 @@ export function AccountsView({
                     {account.issuer}
                     {account.lastFour ? ` · •••• ${account.lastFour}` : ""}
                   </span>
-                  <span className="bank-card-balance">{balanceText(account)}</span>
+                  <span
+                    className={`bank-card-balance${
+                      account.currentBalanceMinor === null ? " is-unknown" : ""
+                    }`}
+                  >
+                    {balanceText(account)}
+                  </span>
                   <span className="bank-card-asof">{balanceAsOf(account)}</span>
                   <span className="bank-card-rule" aria-hidden="true" />
                   <span className="bank-card-stats">
                     <span>
                       <small>Spent this month</small>
-                      {spend === null ? "—" : formatMoney(spend, account.currency)}
+                      {spend === null ? (
+                        <>
+                          —<span className="sr-only"> Not reported</span>
+                        </>
+                      ) : (
+                        formatMoney(spend, account.currency)
+                      )}
                     </span>
                     <span>
                       <small>{account.included ? "In net position" : "Not in totals"}</small>
@@ -311,6 +379,9 @@ export function AccountsView({
                     spending.
                   </span>
                   <span className="bank-card-cta">View activity →</span>
+                  <span className="sr-only" id={`bank-account-desc-${account.accountId}`}>
+                    {bankTileDescription(account, spend)}
+                  </span>
                 </button>
               );
             })}
@@ -344,7 +415,10 @@ export function AccountsView({
               Credit cards
             </h2>
           </div>
-          <strong className="account-group-total">{cardDisplay}</strong>
+          <strong className={`account-group-total${cardDisplay === "—" ? " is-unknown" : ""}`}>
+            {cardDisplay}
+            {cardDisplay === "—" ? <span className="sr-only"> Not reported</span> : null}
+          </strong>
         </header>
 
         {cardAccounts.length > 0 ? (
@@ -367,6 +441,7 @@ export function AccountsView({
                   style={issuerVariables(theme, account.issuer) as CSSProperties}
                   onClick={() => onFilterAccount(account.accountId)}
                   aria-label={`Filter transactions to ${account.displayName}`}
+                  aria-describedby={`card-account-desc-${account.accountId}`}
                 >
                   <span className="card-account-chip" aria-hidden="true">
                     <span className="card-account-chip-mark" />
@@ -393,12 +468,20 @@ export function AccountsView({
                     <span className="card-account-balance-row">
                       <span>
                         <small>Current balance</small>
-                        <strong>{balanceText(account)}</strong>
+                        <strong className={balance === null ? "is-unknown" : undefined}>
+                          {balanceText(account)}
+                        </strong>
                       </span>
                       <span>
                         <small>Spent this month</small>
                         <strong>
-                          {spend === null ? "—" : formatMoney(spend, account.currency)}
+                          {spend === null ? (
+                            <>
+                              —<span className="sr-only"> Not reported</span>
+                            </>
+                          ) : (
+                            formatMoney(spend, account.currency)
+                          )}
                         </strong>
                       </span>
                     </span>
@@ -439,6 +522,9 @@ export function AccountsView({
                         </span>
                       )}
                     </span>
+                    <span className="sr-only" id={`card-account-desc-${account.accountId}`}>
+                      {cardTileDescription(account, spend)}
+                    </span>
                   </span>
                 </button>
               );
@@ -474,12 +560,22 @@ export function AccountsView({
         </summary>
         <div className="account-details-body">
           <div className="table-wrap">
-            <h3>Cash accounts</h3>
-            <DetailRows accounts={cashAccounts} kind="cash" spendFor={spendFor} />
+            <h3 id="cash-details-title">Cash accounts</h3>
+            <DetailRows
+              accounts={cashAccounts}
+              kind="cash"
+              spendFor={spendFor}
+              headingId="cash-details-title"
+            />
           </div>
           <div className="table-wrap">
-            <h3>Card accounts</h3>
-            <DetailRows accounts={cardAccounts} kind="card" spendFor={spendFor} />
+            <h3 id="card-details-title">Card accounts</h3>
+            <DetailRows
+              accounts={cardAccounts}
+              kind="card"
+              spendFor={spendFor}
+              headingId="card-details-title"
+            />
           </div>
         </div>
       </details>

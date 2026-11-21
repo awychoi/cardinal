@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   isDepositoryAccount,
   type Account,
@@ -17,6 +17,66 @@ interface Props {
 }
 
 type Errors = Partial<Record<keyof AccountPayload, string>>;
+type FieldKey = keyof AccountPayload;
+
+const FIELD_IDS: Record<FieldKey, string> = {
+  issuer: "account-issuer",
+  displayName: "account-display-name",
+  lastFour: "account-last-four",
+  accountType: "account-type",
+  currency: "account-currency",
+  creditLimit: "account-credit-limit",
+  currentBalance: "account-current-balance",
+  includeInOverview: "account-include",
+};
+
+const FIELD_LABELS: Record<FieldKey, string> = {
+  issuer: "Issuer",
+  displayName: "Display name",
+  lastFour: "Last four digits",
+  accountType: "Account type",
+  currency: "Currency",
+  creditLimit: "Credit limit",
+  currentBalance: "Current balance",
+  includeInOverview: "Include in overview totals",
+};
+
+const ERROR_ORDER: FieldKey[] = [
+  "issuer",
+  "displayName",
+  "lastFour",
+  "accountType",
+  "currency",
+  "creditLimit",
+  "currentBalance",
+  "includeInOverview",
+];
+
+/** Translate schema issues into copy a person can act on. */
+function friendlyIssue(key: FieldKey, code: string): string {
+  switch (key) {
+    case "issuer":
+      return code === "too_big"
+        ? "Keep the issuer under 80 characters."
+        : "Enter the issuer, for example Chase.";
+    case "displayName":
+      return code === "too_big"
+        ? "Keep the display name under 120 characters."
+        : "Enter a display name, for example Sapphire Reserve.";
+    case "lastFour":
+      return "Enter exactly four digits, or leave it blank.";
+    case "accountType":
+      return "Choose an account type.";
+    case "currency":
+      return "Use a three-letter currency code, for example USD.";
+    case "creditLimit":
+      return "Keep the credit limit under 40 characters.";
+    case "currentBalance":
+      return "Keep the current balance under 40 characters.";
+    case "includeInOverview":
+      return "Choose whether this account counts in overview totals.";
+  }
+}
 
 export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: Props) {
   const [issuer, setIssuer] = useState(initial?.issuer ?? "");
@@ -36,6 +96,20 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
   const canEditBalance = !initial || initial.sourceKind === "manual";
   const [includeInOverview, setIncludeInOverview] = useState(initial?.includeInOverview ?? true);
   const [errors, setErrors] = useState<Errors>({});
+  const fieldRefs = useRef<Partial<Record<FieldKey, HTMLInputElement | HTMLSelectElement | null>>>(
+    {},
+  );
+
+  const errorKeys = ERROR_ORDER.filter((key) => Boolean(errors[key]));
+
+  function clearError(key: FieldKey) {
+    setErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -55,10 +129,18 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
       const next: Errors = {};
       for (const issue of parsed.error.issues) {
         const key = issue.path[0];
-        if (typeof key === "string" && !(key in next))
-          next[key as keyof AccountPayload] = issue.message;
+        if (typeof key === "string" && !(key in next)) {
+          next[key as FieldKey] = friendlyIssue(key as FieldKey, issue.code);
+        }
       }
       setErrors(next);
+      const firstInvalid = ERROR_ORDER.find((key) => Boolean(next[key]));
+      if (firstInvalid) {
+        const focusFirst = () => fieldRefs.current[firstInvalid]?.focus();
+        if (typeof window.requestAnimationFrame === "function")
+          window.requestAnimationFrame(focusFirst);
+        else window.setTimeout(focusFirst, 0);
+      }
       return;
     }
     setErrors({});
@@ -67,48 +149,137 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
 
   return (
     <form className="account-form" onSubmit={handleSubmit} noValidate>
+      {errorKeys.length > 0 ? (
+        <div className="form-error-summary" role="alert">
+          <p id="account-form-error-title">
+            Check {errorKeys.length === 1 ? "this field" : `these ${errorKeys.length} fields`}{" "}
+            before saving.
+          </p>
+          <ul aria-labelledby="account-form-error-title">
+            {errorKeys.map((key) => (
+              <li key={key}>
+                <a
+                  href={`#${FIELD_IDS[key]}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    fieldRefs.current[key]?.focus();
+                  }}
+                >
+                  {FIELD_LABELS[key]}
+                </a>
+                : {errors[key]}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="form-grid">
         <label>
-          <span className="field-label">Issuer</span>
+          <span className="field-label">
+            Issuer
+            <span className="field-required" aria-hidden="true">
+              Required
+            </span>
+          </span>
           <input
+            id={FIELD_IDS.issuer}
+            ref={(element) => {
+              fieldRefs.current.issuer = element;
+            }}
             value={issuer}
-            onChange={(event) => setIssuer(event.target.value)}
+            onChange={(event) => {
+              setIssuer(event.target.value);
+              clearError("issuer");
+            }}
             maxLength={80}
             placeholder="Chase"
+            aria-label="Issuer"
             aria-invalid={Boolean(errors.issuer)}
+            aria-describedby={errors.issuer ? `${FIELD_IDS.issuer}-error` : undefined}
+            required
           />
-          {errors.issuer ? <span className="field-error">{errors.issuer}</span> : null}
+          {errors.issuer ? (
+            <span className="field-error" id={`${FIELD_IDS.issuer}-error`}>
+              {errors.issuer}
+            </span>
+          ) : null}
         </label>
         <label>
-          <span className="field-label">Display name</span>
+          <span className="field-label">
+            Display name
+            <span className="field-required" aria-hidden="true">
+              Required
+            </span>
+          </span>
           <input
+            id={FIELD_IDS.displayName}
+            ref={(element) => {
+              fieldRefs.current.displayName = element;
+            }}
             value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
+            onChange={(event) => {
+              setDisplayName(event.target.value);
+              clearError("displayName");
+            }}
             maxLength={120}
             placeholder="Sapphire Reserve"
+            aria-label="Display name"
             aria-invalid={Boolean(errors.displayName)}
+            aria-describedby={errors.displayName ? `${FIELD_IDS.displayName}-error` : undefined}
+            required
           />
-          {errors.displayName ? <span className="field-error">{errors.displayName}</span> : null}
+          {errors.displayName ? (
+            <span className="field-error" id={`${FIELD_IDS.displayName}-error`}>
+              {errors.displayName}
+            </span>
+          ) : null}
         </label>
         <label>
           <span className="field-label">Last four digits (optional)</span>
           <input
+            id={FIELD_IDS.lastFour}
+            ref={(element) => {
+              fieldRefs.current.lastFour = element;
+            }}
             value={lastFour}
-            onChange={(event) => setLastFour(event.target.value)}
+            onChange={(event) => {
+              setLastFour(event.target.value);
+              clearError("lastFour");
+            }}
             inputMode="numeric"
             maxLength={4}
             placeholder="1234"
+            aria-label="Last four digits (optional)"
             aria-invalid={Boolean(errors.lastFour)}
+            aria-describedby={errors.lastFour ? `${FIELD_IDS.lastFour}-error` : undefined}
           />
-          {errors.lastFour ? <span className="field-error">Enter exactly four digits.</span> : null}
+          {errors.lastFour ? (
+            <span className="field-error" id={`${FIELD_IDS.lastFour}-error`}>
+              {errors.lastFour}
+            </span>
+          ) : null}
         </label>
         <label>
-          <span className="field-label">Account type</span>
+          <span className="field-label">
+            Account type
+            <span className="field-required" aria-hidden="true">
+              Required
+            </span>
+          </span>
           <select
+            id={FIELD_IDS.accountType}
+            ref={(element) => {
+              fieldRefs.current.accountType = element;
+            }}
             value={accountType}
-            onChange={(event) =>
-              setAccountType(event.target.value as AccountPayload["accountType"])
-            }
+            onChange={(event) => {
+              setAccountType(event.target.value as AccountPayload["accountType"]);
+              clearError("accountType");
+            }}
+            aria-label="Account type"
+            aria-required="true"
+            aria-invalid={Boolean(errors.accountType)}
+            aria-describedby={errors.accountType ? `${FIELD_IDS.accountType}-error` : undefined}
           >
             {initialDepository === true ? (
               <>
@@ -132,10 +303,24 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
               </>
             )}
           </select>
+          {errors.accountType ? (
+            <span className="field-error" id={`${FIELD_IDS.accountType}-error`}>
+              {errors.accountType}
+            </span>
+          ) : null}
         </label>
         <label>
           <span className="field-label">Currency</span>
-          <input value="USD" readOnly aria-readonly="true" />
+          <input
+            id={FIELD_IDS.currency}
+            ref={(element) => {
+              fieldRefs.current.currency = element;
+            }}
+            value="USD"
+            readOnly
+            aria-readonly="true"
+            aria-label="Currency"
+          />
         </label>
         {depository ? (
           canEditBalance ? (
@@ -144,14 +329,29 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
                 {initial ? "Update current balance (optional)" : "Current balance (optional)"}
               </span>
               <input
+                id={FIELD_IDS.currentBalance}
+                ref={(element) => {
+                  fieldRefs.current.currentBalance = element;
+                }}
                 value={currentBalance}
-                onChange={(event) => setCurrentBalance(event.target.value)}
+                onChange={(event) => {
+                  setCurrentBalance(event.target.value);
+                  clearError("currentBalance");
+                }}
                 placeholder={initial ? "Leave blank to keep the latest" : "5,200.00"}
                 inputMode="decimal"
+                aria-label={
+                  initial ? "Update current balance (optional)" : "Current balance (optional)"
+                }
                 aria-invalid={Boolean(errors.currentBalance)}
+                aria-describedby={
+                  errors.currentBalance ? `${FIELD_IDS.currentBalance}-error` : undefined
+                }
               />
               {errors.currentBalance ? (
-                <span className="field-error">{errors.currentBalance}</span>
+                <span className="field-error" id={`${FIELD_IDS.currentBalance}-error`}>
+                  {errors.currentBalance}
+                </span>
               ) : null}
             </label>
           ) : (
@@ -163,13 +363,26 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
           <label>
             <span className="field-label">Credit limit (optional)</span>
             <input
+              id={FIELD_IDS.creditLimit}
+              ref={(element) => {
+                fieldRefs.current.creditLimit = element;
+              }}
               value={creditLimit}
-              onChange={(event) => setCreditLimit(event.target.value)}
+              onChange={(event) => {
+                setCreditLimit(event.target.value);
+                clearError("creditLimit");
+              }}
               placeholder="12,500.00"
               inputMode="decimal"
+              aria-label="Credit limit (optional)"
               aria-invalid={Boolean(errors.creditLimit)}
+              aria-describedby={errors.creditLimit ? `${FIELD_IDS.creditLimit}-error` : undefined}
             />
-            {errors.creditLimit ? <span className="field-error">{errors.creditLimit}</span> : null}
+            {errors.creditLimit ? (
+              <span className="field-error" id={`${FIELD_IDS.creditLimit}-error`}>
+                {errors.creditLimit}
+              </span>
+            ) : null}
           </label>
         )}
       </div>
@@ -177,7 +390,10 @@ export function AccountForm({ initial, submitLabel, busy, onSubmit, onCancel }: 
         <input
           type="checkbox"
           checked={includeInOverview}
-          onChange={(event) => setIncludeInOverview(event.target.checked)}
+          onChange={(event) => {
+            setIncludeInOverview(event.target.checked);
+            clearError("includeInOverview");
+          }}
         />
         Include in overview totals
       </label>

@@ -58,13 +58,20 @@ describe("OverviewView", () => {
     const hero = screen.getByRole("region", { name: "Net position" });
     const cash = formatMoney(dashboard.overview.balances.cashKnownTotalMinor);
     const cards = formatMoney(dashboard.overview.balances.cardKnownTotalMinor);
+    const mini = (label: string) =>
+      Array.from(hero.querySelectorAll<HTMLElement>(".hero-mini")).find(
+        (element) => element.querySelector(".hero-mini-label")?.textContent === label,
+      ) as HTMLElement;
     expect(within(hero).getByText("Net position")).toBeInTheDocument();
-    expect(within(hero).getByText("Cash on hand")).toBeInTheDocument();
-    expect(within(hero).getByText("Card balances")).toBeInTheDocument();
-    expect(within(hero).getByText("Available credit")).toBeInTheDocument();
+    expect(mini("Cash on hand")).toBeInTheDocument();
+    expect(mini("Card balances")).toBeInTheDocument();
+    expect(mini("Available credit")).toBeInTheDocument();
     expect(within(hero).getAllByText(cash).length).toBeGreaterThan(0);
     expect(within(hero).getAllByText(cards).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Card balances sit/)).toBeInTheDocument();
+    // The quick read interprets the month instead of repeating the hero arithmetic.
+    expect(
+      within(screen.getByRole("complementary", { name: "A quick read" })).getByText("Top category"),
+    ).toBeInTheDocument();
   });
 
   it("puts the bank account beside cards in the account preview", async () => {
@@ -74,6 +81,16 @@ describe("OverviewView", () => {
     expect(
       screen.getByRole("button", { name: "Open activity for Everyday Checking (demo)" }),
     ).toBeInTheDocument();
+    const cashTile = screen.getByRole("button", {
+      name: "Open activity for Everyday Checking (demo)",
+    });
+    expect(cashTile).toHaveAccessibleDescription(/\$5,123\.00 balance/);
+    expect(cashTile).toHaveAccessibleDescription(/Connected/);
+    expect(cashTile).toHaveAccessibleDescription(/included in totals/);
+    const cardTile = screen.getByRole("button", {
+      name: "Open activity for Sapphire Reserve (demo)",
+    });
+    expect(cardTile).toHaveAccessibleDescription(/next payment/);
     expect(await screen.findByText(/Cash covers/)).toBeInTheDocument();
   });
 
@@ -107,7 +124,7 @@ describe("OverviewView", () => {
       .getByText(/Amazon Store Card \(demo\)/)
       .closest("li");
     expect(within(unreported as HTMLElement).getByText("$543.00")).toBeInTheDocument();
-    expect(within(unreported as HTMLElement).getByText("not reported")).toBeInTheDocument();
+    expect(within(unreported as HTMLElement).getByText("Not reported")).toBeInTheDocument();
   });
 
   it("switches composition to ranked bars with the theme", () => {
@@ -184,12 +201,18 @@ describe("OverviewView", () => {
     renderOverview("ledger", dashboard);
 
     const hero = screen.getByRole("region", { name: "Net position" });
-    const cashMini = within(hero).getByText("Cash on hand").closest(".hero-mini") as HTMLElement;
-    const cardMini = within(hero).getByText("Card balances").closest(".hero-mini") as HTMLElement;
-    expect(within(cashMini).getByText("—")).toBeInTheDocument();
+    expect(hero.querySelector(".hero-value")).toHaveTextContent("Not reported");
+    expect(hero.querySelector(".hero-value-unknown")).not.toBeNull();
+    const mini = (label: string) =>
+      Array.from(hero.querySelectorAll<HTMLElement>(".hero-mini")).find(
+        (element) => element.querySelector(".hero-mini-label")?.textContent === label,
+      ) as HTMLElement;
+    const cashMini = mini("Cash on hand");
+    const cardMini = mini("Card balances");
     expect(within(cashMini).getByText("Not reported")).toBeInTheDocument();
-    expect(within(cardMini).getByText("—")).toBeInTheDocument();
+    expect(within(cashMini).getByText("0 of 1 reported")).toBeInTheDocument();
     expect(within(cardMini).getByText("Not reported")).toBeInTheDocument();
+    expect(within(cardMini).getByText("0 of 1 USD cards reported")).toBeInTheDocument();
     expect(within(hero).queryByText("$0.00")).not.toBeInTheDocument();
     expect(
       screen.getByText("Cash is not reported yet. A missing balance stays unknown, never $0.00."),
@@ -211,10 +234,21 @@ describe("OverviewView", () => {
     const cashMini = within(hero).getByText("Cash on hand").closest(".hero-mini") as HTMLElement;
     expect(within(cashMini).getByText("$0.00")).toBeInTheDocument();
     expect(within(cashMini).getByText("1 of 1 reported")).toBeInTheDocument();
-    expect(within(hero).getByText(/complete/)).toBeInTheDocument();
+    expect(within(hero).getByText(/Complete · all 1 balance reported/)).toBeInTheDocument();
     expect(
       screen.getByText(/not enough posted activity yet to estimate a cushion/),
     ).toBeInTheDocument();
+  });
+
+  it("opens the deeper picture from the quick-read footer", async () => {
+    const user = userEvent.setup();
+    renderOverview();
+    expect(screen.getByText("Limits, connection health, and currencies")).toBeInTheDocument();
+    const details = document.querySelector(".wealth-details") as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "The numbers behind this →" }));
+    expect(details.open).toBe(true);
   });
 
   it("lets every payment behind the due total be inspected", async () => {

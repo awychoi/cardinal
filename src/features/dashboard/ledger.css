@@ -119,6 +119,62 @@
   border-bottom-color: color-mix(in srgb, var(--border) 58%, transparent);
 }
 
+/* One real control per row: a compact chevron in a narrow Details column. The
+   row itself stays clickable for pointer users but is no longer a duplicate tab
+   stop. The inset ring keeps the focus indicator inside the scroll container. */
+.ledger-table th.ledger-actions-head,
+.ledger-table td.ledger-actions-cell {
+  padding-left: 4px;
+  padding-right: 8px;
+  text-align: right;
+  width: 1%;
+}
+
+.ledger-details-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-control) - 2px);
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  padding: 0;
+  width: 24px;
+}
+
+.ledger-details-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.ledger-details-btn[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.ledger-details-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.ledger-details-btn svg {
+  height: 14px;
+  width: 14px;
+}
+
+/* The day headings are sticky inside the table scroller; keep a focused row
+   control below them rather than under their paint. */
+.ledger-table-wrap {
+  scroll-padding-top: 70px;
+}
+
+.ledger-table tbody tr,
+.ledger-details-btn {
+  scroll-margin-top: 70px;
+}
+
 .ledger-table tbody tr:hover,
 .ledger-table tbody tr:focus-visible {
   background: color-mix(in srgb, var(--accent-soft) 52%, var(--surface));
@@ -259,6 +315,13 @@
   }
 
   .detail-panel {
+    position: static;
+  }
+
+  /* At this width the top-bar header wraps to two rows, so a fixed 76px
+     sticky offset would slide the filter bar under the wrapped header. Let it
+     scroll with the page instead; 900×760 is the layout the reviewer caught. */
+  .app-topbar .dashboard .filter-bar-sticky {
     position: static;
   }
 }

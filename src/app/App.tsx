@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BrandLogo } from "../components/BrandLogo";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { AppShell } from "./AppShell";
@@ -51,6 +51,7 @@ export function App() {
   const [rememberedThemeId, setRememberedThemeId] = useState(
     () => readRememberedThemeId() ?? DEFAULT_THEME_ID,
   );
+  const previousUnlocked = useRef<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +93,28 @@ export function App() {
   useLayoutEffect(() => {
     applyTheme(theme, mode);
   }, [theme, mode]);
+
+  // The shell unmounts when the vault locks (or the gate hands off to the
+  // shell), which would otherwise drop focus on <body>. Move it to the new
+  // screen's main/heading, but never on the first boot.
+  useEffect(() => {
+    if (boot.kind !== "ready") return;
+    const unlocked = boot.vault.unlocked;
+    const previous = previousUnlocked.current;
+    previousUnlocked.current = unlocked;
+    if (previous === null || previous === unlocked) return;
+    const focusTarget = () => {
+      const target = unlocked
+        ? (document.getElementById("main-content") ??
+          document.getElementById("wizard-main") ??
+          document.getElementById("vault-title"))
+        : document.getElementById("vault-title");
+      target?.focus();
+    };
+    if (typeof window.requestAnimationFrame === "function")
+      window.requestAnimationFrame(focusTarget);
+    else window.setTimeout(focusTarget, 0);
+  }, [boot]);
 
   // The Rust side enforces the lock; this listener only clears the renderer.
   useEffect(() => {

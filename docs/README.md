@@ -19,7 +19,7 @@ User-facing guides for Cardinal.
 | [`integrations/`](integrations) | Plaid setup and linking |
 | [`operations/`](operations) | Backup and recovery |
 | [`security/`](security) | Security architecture, threat model, incident runbook |
-| [`design/`](design) | App screenshots used by the README and the workbench banner |
+| [`design/`](design) | App screenshots, the README header lockup, and the workbench banner |
 
 Plans, dated reviews, implementation logs, reference decisions, the data dictionary, the test
 plan, the older brand and theming boards, and local-signing notes are retired to the local,

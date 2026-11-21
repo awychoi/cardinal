@@ -1,7 +1,4 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="src/assets/brand/cardinal-lockup-dark.svg">
-  <img src="src/assets/brand/cardinal-lockup.svg" alt="Cardinal — local-first, encrypted wealth manager for macOS" width="280">
-</picture>
+<img src="docs/design/cardinal-lockup-dark-panel.svg" alt="Cardinal — local-first, encrypted wealth manager for macOS" width="320">
 
 An open-source, local-first, encrypted wealth manager for macOS. It brings bank accounts and credit
 cards into one quiet, bank-first balance sheet, tracks calendar-month spending, and keeps everything

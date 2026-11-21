@@ -289,6 +289,7 @@ fn settings_survive_lock_and_unlock() {
             next.auto_lock_minutes = 30;
             next.close_behavior = cardinal_lib::storage::settings::CloseBehavior::Hide;
             next.onboarding_completed = true;
+            next.dismissed_notices = vec!["missing_balance".to_string()];
             cardinal_lib::storage::settings::save_settings(conn, &next)
         })
         .unwrap();
@@ -302,6 +303,10 @@ fn settings_survive_lock_and_unlock() {
         cardinal_lib::storage::settings::CloseBehavior::Hide
     );
     assert!(settings.onboarding_completed);
+    assert_eq!(
+        settings.dismissed_notices,
+        vec!["missing_balance".to_string()]
+    );
 }
 
 #[test]

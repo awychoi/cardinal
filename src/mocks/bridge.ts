@@ -113,6 +113,7 @@ const defaultSettings: Settings = {
   backupRetentionDaily: 7,
   lastBackupAt: null,
   lastBackupStatus: null,
+  dismissedNotices: [],
 };
 
 let settings: Settings = { ...defaultSettings };

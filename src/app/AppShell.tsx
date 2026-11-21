@@ -143,7 +143,6 @@ export function AppShell({
     section: SettingsSectionId;
     accountsTab?: AccountsTabId;
   } | null>(null);
-  const [dismissedMissingCount, setDismissedMissingCount] = useState<number | null>(null);
   const [liveMessage, setLiveMessage] = useState("");
   const mainRef = useRef<HTMLElement>(null);
   const previousView = useRef<View | null>(null);
@@ -381,22 +380,27 @@ export function AppShell({
   const allExcluded = wealth?.usdScope === "all_excluded";
   const otherCurrencyOnly = wealth?.usdScope === "other_currency_only";
   const usdPosition = wealth?.usdScope === "usd";
-  const missingBalanceCount = wealth?.usdMissingBalances ?? 0;
-  const missingBalanceDismissed =
-    dismissedMissingCount !== null &&
-    missingBalanceCount > 0 &&
-    missingBalanceCount <= dismissedMissingCount;
+  const dismissedNotices = vault.settings?.dismissedNotices ?? [];
+  const missingBalanceDismissed = dismissedNotices.includes("missing_balance");
 
-  useEffect(() => {
-    if (missingBalanceCount === 0) setDismissedMissingCount(null);
-  }, [missingBalanceCount]);
+  async function setMissingBalanceDismissed(dismissed: boolean) {
+    const next = dismissed
+      ? Array.from(new Set([...dismissedNotices, "missing_balance"]))
+      : dismissedNotices.filter((id) => id !== "missing_balance");
+    try {
+      const result = await command("settings_update", { dismissedNotices: next });
+      onSettingsChanged(result.settings);
+    } catch {
+      // Keep the warning in place if the encrypted preference could not be saved.
+    }
+  }
 
   function dismissMissingBalance() {
-    if (missingBalanceCount > 0) setDismissedMissingCount(missingBalanceCount);
+    void setMissingBalanceDismissed(true);
   }
 
   function restoreMissingBalance() {
-    setDismissedMissingCount(null);
+    void setMissingBalanceDismissed(false);
   }
 
   const cashKnown = wealth ? totalReported(wealth.cashStatus) : false;

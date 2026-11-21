@@ -86,8 +86,9 @@ dashboard.
 - **No fake precision.** Cash cushion and pace are labeled estimates based on posted activity; a
   month with no ledger rows is “No data,” not a confirmed zero.
 - **Warnings can be dismissed without hiding the data.** A missing-balance warning can be dismissed
-  for the session (and restored from the deeper picture); the account itself still shows
-  “Not reported” so the underlying state remains visible.
+  until the user restores it; the choice is stored with the encrypted settings and survives lock,
+  unlock, and relaunch. The account itself still shows “Not reported” so the underlying state
+  remains visible.
 
 ## Accessibility
 

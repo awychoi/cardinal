@@ -1148,7 +1148,7 @@ export function OverviewView({
               )}
               {dismissedMissingBalance ? (
                 <p className="attention-dismissed">
-                  Missing-balance warning dismissed for this session.
+                  Missing-balance warning dismissed.
                   {onRestoreMissingBalance ? (
                     <button type="button" className="link-button" onClick={onRestoreMissingBalance}>
                       Restore

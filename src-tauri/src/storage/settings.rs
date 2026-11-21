@@ -53,6 +53,9 @@ pub struct Settings {
     pub backup_retention_daily: u32,
     pub last_backup_at: Option<String>,
     pub last_backup_status: Option<String>,
+    /// Notice ids the user explicitly dismissed. Persisted in the encrypted
+    /// settings table so a dismissal survives lock, unlock, and relaunch.
+    pub dismissed_notices: Vec<String>,
 }
 
 impl Settings {
@@ -79,6 +82,7 @@ impl Default for Settings {
             backup_retention_daily: 7,
             last_backup_at: None,
             last_backup_status: None,
+            dismissed_notices: Vec::new(),
         }
     }
 }
@@ -96,6 +100,7 @@ pub struct SettingsPatch {
     pub sync_windows: Option<Vec<String>>,
     pub sync_on_launch: Option<bool>,
     pub backup_retention_daily: Option<u32>,
+    pub dismissed_notices: Option<Vec<String>>,
 }
 
 const KEYS: &[&str] = &[
@@ -113,7 +118,12 @@ const KEYS: &[&str] = &[
     "backupRetentionDaily",
     "lastBackupAt",
     "lastBackupStatus",
+    "dismissedNotices",
 ];
+
+/// Only notices the UI can actually ask to dismiss. Unknown ids are rejected so
+/// the encrypted settings table cannot be used as arbitrary scratch storage.
+const DISMISSIBLE_NOTICES: &[&str] = &["missing_balance"];
 
 pub fn load_settings(conn: &Connection) -> AppResult<Settings> {
     let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
@@ -175,6 +185,9 @@ pub fn load_settings(conn: &Connection) -> AppResult<Settings> {
     if let Some(v) = take!("lastBackupStatus") {
         settings.last_backup_status = v;
     }
+    if let Some(v) = take!("dismissedNotices") {
+        settings.dismissed_notices = v;
+    }
     // Values that must never be weakened are pinned here.
     settings.lock_on_system_events = true;
     settings.content_protection = true;
@@ -229,6 +242,14 @@ pub fn validate_settings(settings: &Settings) -> AppResult<()> {
             return Err(AppError::InvalidInput("sync window"));
         }
     }
+    if settings.dismissed_notices.len() > 16
+        || settings
+            .dismissed_notices
+            .iter()
+            .any(|id| !DISMISSIBLE_NOTICES.contains(&id.as_str()))
+    {
+        return Err(AppError::InvalidInput("dismissed notices"));
+    }
     Ok(())
 }
 
@@ -264,6 +285,9 @@ pub fn apply_patch(current: &Settings, patch: SettingsPatch) -> AppResult<Settin
     if let Some(v) = patch.backup_retention_daily {
         next.backup_retention_daily = v;
     }
+    if let Some(v) = patch.dismissed_notices {
+        next.dismissed_notices = v;
+    }
     validate_settings(&next)?;
     Ok(next)
 }
@@ -271,7 +295,7 @@ pub fn apply_patch(current: &Settings, patch: SettingsPatch) -> AppResult<Settin
 pub fn save_settings(conn: &Connection, settings: &Settings) -> AppResult<()> {
     validate_settings(settings)?;
     let now = now_rfc3339();
-    let pairs: [(&str, String); 14] = [
+    let pairs: [(&str, String); 15] = [
         (
             "timezone",
             serde_json::to_string(&settings.timezone).map_err(|_| AppError::Internal)?,
@@ -330,6 +354,10 @@ pub fn save_settings(conn: &Connection, settings: &Settings) -> AppResult<()> {
         (
             "lastBackupStatus",
             serde_json::to_string(&settings.last_backup_status).map_err(|_| AppError::Internal)?,
+        ),
+        (
+            "dismissedNotices",
+            serde_json::to_string(&settings.dismissed_notices).map_err(|_| AppError::Internal)?,
         ),
     ];
     let tx = conn.unchecked_transaction()?;
@@ -449,6 +477,37 @@ mod tests {
                 }
             )
             .is_ok());
+        }
+    }
+
+    #[test]
+    fn dismissed_notices_are_bounded_and_patchable() {
+        let s = Settings::default();
+        let next = apply_patch(
+            &s,
+            SettingsPatch {
+                dismissed_notices: Some(vec!["missing_balance".into()]),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(next.dismissed_notices, vec!["missing_balance".to_string()]);
+
+        for bad in [
+            vec!["unknown_notice".to_string()],
+            vec!["missing_balance".to_string(), "nope".to_string()],
+            (0..17)
+                .map(|_| "missing_balance".to_string())
+                .collect::<Vec<_>>(),
+        ] {
+            assert!(apply_patch(
+                &s,
+                SettingsPatch {
+                    dismissed_notices: Some(bad),
+                    ..Default::default()
+                }
+            )
+            .is_err());
         }
     }
 

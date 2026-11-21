@@ -26,7 +26,7 @@ test.describe("wealth view (browser mock)", () => {
     await expect(page.getByRole("heading", { name: "Card accounts" })).toBeVisible();
   });
 
-  test("a missing-balance warning can be dismissed and restored for the session", async ({
+  test("a missing-balance warning survives lock and navigation until restored", async ({
     page,
   }) => {
     await openUnlocked(page);
@@ -35,17 +35,21 @@ test.describe("wealth view (browser mock)", () => {
     await expect(attention.getByText("1 account is missing a balance")).toBeVisible();
     await attention.getByRole("button", { name: "Dismiss missing-balance warning" }).click();
     await expect(attention.getByText("1 account is missing a balance")).toHaveCount(0);
-    await expect(
-      attention.getByText(/Missing-balance warning dismissed for this session/),
-    ).toBeVisible();
+    await expect(attention.getByText(/Missing-balance warning dismissed/)).toBeVisible();
 
     await page.locator(".wealth-details > summary").click();
     await openPrimaryView(page, "Accounts");
     await openPrimaryView(page, "Overview");
     await page.locator(".wealth-details > summary").click();
-    await expect(
-      attention.getByText(/Missing-balance warning dismissed for this session/),
-    ).toBeVisible();
+    await expect(attention.getByText(/Missing-balance warning dismissed/)).toBeVisible();
+
+    // The encrypted settings must keep the dismissal through a lock/unlock cycle.
+    await page.getByRole("button", { name: "Lock now" }).click();
+    await expect(page.getByText(/Your encrypted ledger is locked/)).toBeVisible();
+    await page.getByRole("button", { name: "Unlock vault" }).click();
+    await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+    await page.locator(".wealth-details > summary").click();
+    await expect(attention.getByText(/Missing-balance warning dismissed/)).toBeVisible();
 
     await attention.getByRole("button", { name: "Restore" }).click();
     await expect(attention.getByText("1 account is missing a balance")).toBeVisible();

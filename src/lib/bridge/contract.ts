@@ -65,6 +65,8 @@ export const zSettings = z
     backupRetentionDaily: z.number().int().min(1).max(30),
     lastBackupAt: z.string().nullable(),
     lastBackupStatus: z.string().nullable(),
+    /** Notice ids dismissed by the user, persisted encrypted with settings. */
+    dismissedNotices: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/)).max(16),
   })
   .strict();
 
@@ -120,6 +122,10 @@ export const zSettingsPatch = z
       .optional(),
     syncOnLaunch: z.boolean().optional(),
     backupRetentionDaily: z.number().int().min(1).max(30).optional(),
+    dismissedNotices: z
+      .array(z.string().regex(/^[a-z0-9_]{1,64}$/))
+      .max(16)
+      .optional(),
   })
   .strict();
 

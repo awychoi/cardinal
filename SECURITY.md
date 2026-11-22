@@ -102,16 +102,6 @@ exercises the Rust integration paths and the browser renderer; embedded Rust uni
 the source. Browser tests do not prove native Tauri or macOS behavior. Historical evidence is in
 the local archive.
 
-A repository secret audit on 2026-11-21 covered tracked files, full Git history, unreachable
-objects, build outputs, and local caches; it found no live credentials. The only scanner hits were
-generic-API-key false positives in vendored crates and build artifacts under ignored directories.
-
-A code-level security assessment on 2026-11-21 reviewed the vault, lock, Keychain, backup/restore,
-IPC, build, and dependency paths. It found the cryptographic core and renderer boundary sound, and
-recorded the remaining issues (bundle signing, Keychain claims, old-key material after rotation,
-lock-screen clearing, audit coverage, and dependency advisories) in the
-[assessment](docs/security/assessment-2026-11-21.md).
-
 ## 7. Residual risks (summary)
 
 See §2. The app is best described as a local, encrypted, single-user application with documented limits — not "watertight", "unhackable", or "military-grade", and not distribution-ready.

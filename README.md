@@ -87,15 +87,6 @@ SSH private keys, `.netrc`, `.git-credentials`) even if force-added. CI
   data is unrecoverable.
 - The ledger is encrypted at rest with SQLCipher; backups are encrypted containers. Plaintext CSV
   exports are not protected — the app warns before writing one.
-- Plaid supports **Sandbox** test Items and **Trial/Production** real Items with separate
-  credentials. The app allows one active Item per institution: if a bank is already connected, link
-  completion stops before the access-token exchange and points to **Update**/**Reconnect** instead,
-  so a duplicate cannot consume another Trial Item. Both environments are verified end to end:
-  Sandbox on 2026-10-24 and Trial/Production on 2026-11-01 with a real production Item (4 credit
-  accounts). Depository accounts are implemented and covered by the test suite, but the live
-  verification Items contained credit accounts only. Live reconnect/update mode has not been
-  exercised against a real Item, and Trial limits and billing apply. The app is not affiliated with
-  Plaid.
 - The UI never receives the passphrase or provider tokens; those stay in Rust and the macOS
   Keychain.
 - Read [SECURITY.md](SECURITY.md) before relying on this for real data.
@@ -107,14 +98,6 @@ SSH private keys, `.netrc`, `.git-credentials`) even if force-added. CI
 - [Plaid setup and linking](docs/integrations/plaid-guide.md)
 - [Backup and recovery](docs/operations/backup-recovery.md)
 - [Security architecture](docs/security/architecture.md) · [threat model](docs/security/threat-model.md) · [incident runbook](docs/security/incident-runbook.md)
-
-## Status
-
-Early and experimental. Interfaces, storage formats, and behavior can change. Plaid linking is
-verified in both Sandbox and Trial/Production — the production path with a real production Item
-(4 credit accounts, 2026-11-01); depository-account linking is not yet live-verified. Live
-reconnect/update mode remains unverified. The macOS executable is linker-signed ad-hoc; the app
-bundle is not validly signed until you sign it, and it is not distribution-ready.
 
 ## License
 

@@ -28,10 +28,10 @@ import type { Theme, ThemeMode } from "../theme/schema";
 type View = "overview" | "accounts" | "transactions" | "settings";
 
 const VIEWS: { id: View; label: string; hint: string }[] = [
-  { id: "overview", label: "Overview", hint: "The big picture" },
-  { id: "accounts", label: "Accounts", hint: "What you own and owe" },
-  { id: "transactions", label: "Transactions", hint: "Every movement" },
-  { id: "settings", label: "Settings", hint: "Make it yours" },
+  { id: "overview", label: "Overview", hint: "Balances and spending" },
+  { id: "accounts", label: "Accounts", hint: "Cash and cards" },
+  { id: "transactions", label: "Transactions", hint: "All transactions" },
+  { id: "settings", label: "Settings", hint: "Preferences" },
 ];
 
 const VIEW_GROUPS: { id: string; label: string; views: View[] }[] = [
@@ -545,7 +545,7 @@ export function AppShell({
         {liveMessage}
       </div>
       {sidebar ? (
-        <aside className="sidebar" aria-label="Wealth sidebar">
+        <aside className="sidebar" aria-label="Sidebar">
           <div className="sidebar-head">{brand}</div>
           {sideNet}
           {navigation}
@@ -584,8 +584,8 @@ export function AppShell({
             <div className="header-context">
               <span className="header-context-mark" aria-hidden="true" />
               <span>
-                <span className="header-context-kicker">Encrypted preferences</span>
-                <span className="header-context-title">Kept on this Mac</span>
+                <span className="header-context-kicker">Settings</span>
+                <span className="header-context-title">Stored on this Mac</span>
               </span>
             </div>
           ) : (

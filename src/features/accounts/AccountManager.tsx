@@ -130,7 +130,7 @@ export function AccountManager({
         ? "Edit this account’s details; past transactions keep their records."
         : mode.kind === "payment"
           ? `Optional statement and due-date facts for ${mode.account.displayName}. They survive syncs.`
-          : "Every account in one list, labeled by source.";
+          : "Every account in one list, with its data source.";
 
   return (
     <section className="panel panel-wide" aria-labelledby="accounts-title">

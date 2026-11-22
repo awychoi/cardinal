@@ -2,7 +2,7 @@
   "$schema": "./theme.schema.json",
   "id": "blueprint",
   "name": "Almanac",
-  "description": "Warm paper, cardinal ink, and a red pencil. A quieter way to read your money. The default.",
+  "description": "Warm paper, cardinal ink, and a red pencil. The default.",
   "options": {
     "cardArt": "faces",
     "density": "comfortable",

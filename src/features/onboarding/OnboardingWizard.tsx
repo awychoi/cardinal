@@ -200,7 +200,7 @@ export function OnboardingWizard({
           ))}
         </ol>
         <p className="wizard-progress">
-          Optional steps can be skipped. Everything here can be changed later in Settings.
+          Optional steps can be skipped. You can change all of this later in Settings.
         </p>
 
         {step === "connect" ? (
@@ -389,10 +389,8 @@ export function OnboardingWizard({
           </>
         ) : (
           <>
-            <h1 id="wizard-title">You are ready.</h1>
-            <p className="muted">
-              Your encrypted ledger is unlocked. Everything from here is optional.
-            </p>
+            <h1 id="wizard-title">You&apos;re all set.</h1>
+            <p className="muted">Your ledger is unlocked. You can change any of this later.</p>
             <dl className="facts">
               <div>
                 <dt>Passphrase</dt>

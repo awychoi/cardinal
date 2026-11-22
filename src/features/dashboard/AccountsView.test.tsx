@@ -84,7 +84,7 @@ describe("AccountsView", () => {
 
     const summary = screen.getByRole("region", { name: "Balance sheet summary" });
     const cashSide = within(summary)
-      .getByText(/Cash you own/)
+      .getByText(/Cash · USD/)
       .closest(".sheet-side") as HTMLElement;
     expect(within(cashSide).getByText("—")).toBeInTheDocument();
     expect(
@@ -255,7 +255,7 @@ describe("AccountsView", () => {
     expect(paypal).toHaveAccessibleDescription(/\$0\.00 net spent this month/);
     expect(paypal).toHaveTextContent("$0.00");
 
-    await user.click(screen.getByText("The full account table"));
+    await user.click(screen.getByText("Full account table"));
     const paypalRow = Array.from(document.querySelectorAll(".detail-table tr")).find((row) =>
       row.textContent?.includes("PayPal Credit"),
     );

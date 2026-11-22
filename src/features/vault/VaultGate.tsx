@@ -119,8 +119,8 @@ export function VaultGate({
               Your encrypted ledger is locked.
             </h1>
             <p className="muted">
-              Your accounts, balances, cash, and spending in one private view. The ledger is
-              encrypted and opens only with your passphrase.
+              Your accounts, balances, and spending are encrypted. Unlock with your passphrase to
+              continue.
             </p>
             <div className="vault-actions">
               <Button
@@ -167,12 +167,12 @@ export function VaultGate({
               Create your encrypted ledger.
             </h1>
             <p className="muted">
-              First launch starts empty. Add a bank account or a card, choose the passphrase, and
-              keep the whole picture on this Mac. The app never stores it and there is no recovery
-              if you lose it.
+              First launch starts empty. Add a bank account or a card and choose a passphrase.
+              Everything stays on this Mac. The app never stores the passphrase, and there is no
+              recovery if you lose it.
             </p>
             <ul className="vault-facts">
-              <li>Cash and card balances side by side, with a real net position.</li>
+              <li>Cash and card balances in one place, with a net position.</li>
               <li>SQLCipher database with an Argon2id-wrapped random key.</li>
               <li>Passphrase collected only by a native macOS sheet.</li>
               <li>No account, provider, or network is required to begin.</li>

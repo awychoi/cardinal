@@ -480,16 +480,14 @@ export function LedgerView({
     <section className="dashboard" aria-labelledby="transactions-title">
       <header className="page-heading">
         <div>
-          <p className="eyebrow">
-            {mode === "transactions" ? "Every movement, in one place" : "One month, grouped"}
-          </p>
+          <p className="eyebrow">Ledger</p>
           <h1 id="transactions-title">
             {mode === "transactions" ? "Transactions" : "By supplier"}
           </h1>
           <p className="muted">
             {monthLabel(dashboard.month)} ·{" "}
             {formatMonthRange(dashboard.startDate, dashboard.endDateExclusive)} · cards and bank
-            accounts together
+            accounts
           </p>
         </div>
         <div className="heading-actions">
@@ -811,8 +809,8 @@ export function LedgerView({
         <div className="table-wrap">
           <p className="muted">
             Gross purchases, refunds, and net spend per USD supplier for{" "}
-            {monthLabel(dashboard.month)}. Other currencies stay separate. Click a supplier to
-            inspect its ledger rows.
+            {monthLabel(dashboard.month)}. Other currencies stay separate. Select a supplier to see
+            its transactions.
           </p>
           {dashboard.summary.suppliers.length === 0 ? (
             <p className="empty-row">No eligible spending in this month.</p>

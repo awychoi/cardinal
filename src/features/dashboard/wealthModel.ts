@@ -266,7 +266,7 @@ export function quickRead(model: WealthModel, dashboard: Dashboard): string[] {
       "Only other-currency accounts are included; the USD net position has no accounts yet.",
     );
   } else if (model.cashScope === "empty") {
-    items.push("No cash accounts yet. Add a bank account to see both sides of your net position.");
+    items.push("No cash accounts yet. Add a bank account to include cash in your net position.");
   } else if (model.cashScope === "all_excluded") {
     items.push("Cash accounts are excluded from totals. Include one to count it.");
   } else if (model.cashScope === "other_currency_only" || model.usdCashCount === 0) {

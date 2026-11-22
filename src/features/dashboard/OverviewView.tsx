@@ -278,11 +278,10 @@ export function OverviewView({
   if (overview.accounts.length === 0) {
     return (
       <section className="empty-state" aria-labelledby="overview-title">
-        <p className="eyebrow">A clean slate</p>
-        <h1 id="overview-title">Your accounts, in one quiet place.</h1>
+        <p className="eyebrow">Get started</p>
+        <h1 id="overview-title">Add your first account.</h1>
         <p className="muted">
-          No accounts yet. Start with a bank account or a card — cash and card balances will sit
-          side by side here.
+          Add a bank account or a card. Your balances and spending will show up here.
         </p>
         <Button variant="primary" onClick={onAddAccount}>
           Add account
@@ -416,7 +415,7 @@ export function OverviewView({
         <div>
           <p className="eyebrow">
             <span className="eyebrow-dot" aria-hidden="true" />
-            Your wealth, at a glance
+            Balances
           </p>
           <h1 id="overview-title">Overview</h1>
           <p className="muted">
@@ -446,8 +445,8 @@ export function OverviewView({
                 {visibleAttention.length > 1
                   ? `${attention.length - 1} more item${
                       attention.length - 1 === 1 ? "" : "s"
-                    } worth a look.`
-                  : "One small thing worth a look."}
+                    } need attention.`
+                  : "1 item needs attention."}
               </span>
             </span>
             <span className="attention-strip-cta">Review →</span>
@@ -501,7 +500,7 @@ export function OverviewView({
                 ? "All accounts are excluded from totals. Include an account to see a net position."
                 : usdScope === "other_currency_only"
                   ? "Only other-currency accounts are included. USD totals need an account in USD."
-                  : "No USD balances reported yet. Add an account or sync a bank to complete the picture."
+                  : "No USD balances reported yet. Add an account or sync a bank to see your net position."
               : model.cashStatus === "not_reported"
                 ? `${formatMoney(
                     overview.balances.cardKnownTotalMinor,
@@ -638,10 +637,10 @@ export function OverviewView({
 
           <div className="hero-actions">
             <Button variant="primary" onClick={onOpenAccounts}>
-              See the balance sheet
+              View accounts
             </Button>
             <Button variant="ghost" onClick={onOpenTransactions}>
-              Open ledger
+              View transactions
             </Button>
           </div>
         </section>
@@ -652,8 +651,8 @@ export function OverviewView({
               <img src={brandMarkFor(mode)} alt="" draggable={false} />
             </span>
             <div>
-              <h2 id="quick-read-title">A quick read</h2>
-              <p>From balances and posted activity</p>
+              <h2 id="quick-read-title">Summary</h2>
+              <p>Based on balances and posted activity</p>
             </div>
           </div>
           <ol className="quick-read-list">
@@ -684,9 +683,7 @@ export function OverviewView({
                 </span>
               </>
             ) : (
-              <span className="quick-read-signal-quiet">
-                Nothing posted this month yet. The ledger fills as activity arrives.
-              </span>
+              <span className="quick-read-signal-quiet">No transactions this month yet.</span>
             )}
           </div>
           {!topSignal ? (
@@ -702,12 +699,12 @@ export function OverviewView({
             <p className="fine-print">Estimates use posted activity only. Not financial advice.</p>
             <div className="quick-read-foot-actions">
               <button type="button" className="link-button" onClick={revealDetails}>
-                The numbers behind this →
+                See the details →
               </button>
               {attention.length === 0 && hasKnownBalance && !dismissedMissingBalance ? (
                 <span className="quiet-status">
-                  <span className="dot dot-success" aria-hidden="true" /> Everything reported looks
-                  current
+                  <span className="dot dot-success" aria-hidden="true" /> All reported balances are
+                  up to date
                 </span>
               ) : null}
             </div>
@@ -717,11 +714,10 @@ export function OverviewView({
         <section className="accounts-glance" aria-labelledby="glance-title">
           <header className="panel-head">
             <div>
-              <p className="eyebrow">One wallet, two sides</p>
               <h2 id="glance-title">Your accounts</h2>
             </div>
             <button type="button" className="link-button" onClick={onOpenAccounts}>
-              Balance sheet →
+              View all accounts →
             </button>
           </header>
 
@@ -875,7 +871,7 @@ export function OverviewView({
         <section className="overview-due wealth-panel" aria-labelledby="due-title">
           <header className="overview-panel-head">
             <div>
-              <p className="eyebrow">Cash timing</p>
+              <p className="eyebrow">Payments</p>
               <h2 id="due-title">Coming up</h2>
               {entries.length === 0 ? (
                 <p className="fine-print due-subtitle">
@@ -1097,8 +1093,8 @@ export function OverviewView({
         >
           <summary>
             <span className="wealth-details-copy">
-              <span className="eyebrow">The deeper picture</span>
-              <strong>Limits, connection health, and currencies</strong>
+              <span className="eyebrow">More details</span>
+              <strong>Limits, connections, and currencies</strong>
             </span>
             <span className="wealth-details-open">Open</span>
             <span className="wealth-details-close">Close</span>
@@ -1166,8 +1162,8 @@ export function OverviewView({
             <section className="month-details wealth-panel" aria-labelledby="month-details-title">
               <div className="month-details-head">
                 <div>
-                  <p className="eyebrow">The month, exactly</p>
-                  <h2 id="month-details-title">{monthLabel(dashboard.month)} in numbers</h2>
+                  <p className="eyebrow">Month totals</p>
+                  <h2 id="month-details-title">{monthLabel(dashboard.month)} totals</h2>
                 </div>
                 <span className="fine-print">Calendar month · {dashboard.currency}</span>
               </div>

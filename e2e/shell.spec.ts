@@ -107,7 +107,7 @@ test.describe("secure shell (browser mock)", () => {
     await openUnlocked(page);
     await page.getByRole("button", { name: "Lock now" }).click();
     await expect(page.getByText(/Your encrypted ledger is locked/)).toBeVisible();
-    await expect(page.getByText("Your accounts, in one quiet place.")).toHaveCount(0);
+    await expect(page.getByText("Add your first account.")).toHaveCount(0);
   });
 
   test("primary navigation and the supplier toggle preserve the month", async ({ page }) => {
@@ -142,7 +142,7 @@ test.describe("secure shell (browser mock)", () => {
     await expect(page.getByText("Set your reporting timezone.")).toBeVisible();
     await expect(page.getByText(/Added Wizard Card/)).toBeVisible();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
-    await expect(page.getByText("You are ready.")).toBeVisible();
+    await expect(page.getByText("You're all set.")).toBeVisible();
     await page.getByRole("button", { name: "Finish setup" }).click();
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
     await openAccountsTab(page, "All accounts");
@@ -161,7 +161,7 @@ test.describe("secure shell (browser mock)", () => {
     await select.selectOption("America/Los_Angeles");
     await expect(select).toHaveValue("America/Los_Angeles");
     await page.getByRole("button", { name: "Continue", exact: true }).click();
-    await expect(page.getByText("You are ready.")).toBeVisible();
+    await expect(page.getByText("You're all set.")).toBeVisible();
     await expect(
       page.locator(".facts dd").filter({ hasText: "America/Los_Angeles" }),
     ).toBeVisible();
@@ -184,7 +184,7 @@ test.describe("secure shell (browser mock)", () => {
     await page.getByRole("button", { name: "Unlock vault" }).click();
     await expect(page.getByText("Connect your bank.")).toBeVisible();
     await page.getByRole("button", { name: "Skip setup" }).click();
-    await expect(page.getByText("Your accounts, in one quiet place.")).toBeVisible();
+    await expect(page.getByText("Add your first account.")).toBeVisible();
     await page.getByRole("button", { name: "Add account" }).click();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
     await expect(

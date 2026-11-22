@@ -189,9 +189,9 @@ export function SettingsView({
     <section className="settings" aria-labelledby="settings-title">
       <header className="page-heading">
         <div>
-          <p className="eyebrow">Make it yours</p>
+          <p className="eyebrow">Preferences</p>
           <h1 id="settings-title">Settings</h1>
-          <p className="muted">Local preferences, all encrypted and kept on this Mac.</p>
+          <p className="muted">Preferences are encrypted and stored on this Mac.</p>
         </div>
         <Button onClick={onLock} disabled={busy}>
           Lock now
@@ -289,8 +289,8 @@ export function SettingsView({
                 <div>
                   <div className="setting-label">Idle auto-lock</div>
                   <p className="fine-print">
-                    The vault locks in Rust after this much system-wide inactivity. Screen lock and
-                    sleep always lock.
+                    The vault locks after this much inactivity across the whole Mac. Screen lock and
+                    sleep always lock it too.
                   </p>
                 </div>
                 <select
@@ -426,9 +426,7 @@ export function SettingsView({
               <div className="accounts-hub-head">
                 <div>
                   <h2 id="accounts-hub-title">Accounts &amp; data</h2>
-                  <p className="fine-print">
-                    Every account is labeled with where its data came from.
-                  </p>
+                  <p className="fine-print">Every account shows where its data came from.</p>
                 </div>
               </div>
               <div className="settings-tabs" role="tablist" aria-label="Accounts and data">
@@ -534,8 +532,8 @@ export function SettingsView({
             <section className="panel panel-wide" aria-labelledby="about-title">
               <h2 id="about-title">About</h2>
               <p className="fine-print">
-                Cardinal is a local-first, single-user encrypted ledger. There is no server
-                component and no telemetry.
+                Cardinal is a single-user, encrypted ledger that runs on this Mac. There is no
+                server component and no telemetry.
               </p>
               <p className="about-maker">
                 Made by Wai Yin Choi · <MakerLink />

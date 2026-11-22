@@ -10,7 +10,6 @@ import {
   formatDateOnly,
   formatMoney,
   formatSignedMoney,
-  monthLabel,
 } from "../../lib/formatting";
 import { issuerVariables } from "../../theme/tokens";
 import type { Theme } from "../../theme/schema";
@@ -240,7 +239,7 @@ export function AccountsView({
           <div>
             <p className="eyebrow">Balance sheet</p>
             <h1 id="accounts-title">Accounts</h1>
-            <p className="muted">Cash and card debt, side by side.</p>
+            <p className="muted">Bank accounts and credit cards.</p>
           </div>
         </header>
         <div className="accounts-empty">
@@ -266,8 +265,8 @@ export function AccountsView({
           <p className="eyebrow">Balance sheet</p>
           <h1 id="accounts-title">Accounts</h1>
           <p className="muted">
-            Everything you own and owe. {monthLabel(dashboard.month)} net spending after refunds is
-            shown next to each account.
+            Cash, cards, and this month&apos;s spending. Net spending after refunds is shown next to
+            each account.
           </p>
         </div>
         <div className="heading-actions">
@@ -280,7 +279,7 @@ export function AccountsView({
       <section className="sheet-summary" aria-label="Balance sheet summary">
         <div className="sheet-side sheet-side-cash">
           <span className="sheet-side-label">
-            <AccountKindIcon kind="cash" /> Cash you own · USD
+            <AccountKindIcon kind="cash" /> Cash · USD
           </span>
           <strong className={`sheet-side-value${cashDisplay === "—" ? " is-unknown" : ""}`}>
             {cashDisplay}
@@ -338,7 +337,7 @@ export function AccountsView({
       <section className="account-group" aria-labelledby="bank-accounts-title">
         <header className="account-group-head">
           <div>
-            <p className="eyebrow">The cash side</p>
+            <p className="eyebrow">Cash</p>
             <h2 id="bank-accounts-title" className="account-group-title">
               Bank accounts
             </h2>
@@ -424,11 +423,8 @@ export function AccountsView({
         ) : (
           <div className="account-empty-card">
             <div>
-              <strong>Add your cash side.</strong>
-              <p>
-                A checking or savings account makes your net position complete — and gives the
-                spending numbers a place to land.
-              </p>
+              <strong>No bank accounts yet.</strong>
+              <p>Add a checking or savings account to include cash in your totals.</p>
             </div>
             <Button variant="secondary" onClick={onAddAccount}>
               Add a bank account
@@ -446,7 +442,7 @@ export function AccountsView({
       <section className="account-group" aria-labelledby="credit-accounts-title">
         <header className="account-group-head">
           <div>
-            <p className="eyebrow">The borrowed side</p>
+            <p className="eyebrow">Credit</p>
             <h2 id="credit-accounts-title" className="account-group-title">
               Credit cards
             </h2>
@@ -580,7 +576,7 @@ export function AccountsView({
           <div className="account-empty-card">
             <div>
               <strong>No cards tracked.</strong>
-              <p>Add one if you want to see borrowing beside your cash.</p>
+              <p>Add one to track what you owe.</p>
             </div>
             <Button variant="secondary" onClick={onAddAccount}>
               Add a card
@@ -599,8 +595,8 @@ export function AccountsView({
       <details className="account-details">
         <summary>
           <span>
-            <span className="eyebrow">For the spreadsheet brain</span>
-            <strong>The full account table</strong>
+            <span className="eyebrow">All accounts</span>
+            <strong>Full account table</strong>
           </span>
           <span className="account-details-open">Open tables</span>
           <span className="account-details-close">Close</span>

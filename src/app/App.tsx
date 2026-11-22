@@ -225,9 +225,9 @@ export function App() {
           <h1 id="app-title">
             <BrandLogo className="boot-logo" mode={mode} />
           </h1>
-          <p className="muted">Local-first, encrypted personal card ledger.</p>
+          <p className="muted">An encrypted ledger for your cards and bank accounts.</p>
           <p className="status" role="status">
-            Opening the secure bridge…
+            Opening your encrypted ledger…
           </p>
           <p className="fine-print">
             Your ledger password is collected by a native macOS sheet and never enters this window.
@@ -253,7 +253,7 @@ export function App() {
             Retry
           </button>
           <p className="fine-print">
-            No ledger data is displayed while the secure bridge is unavailable.
+            No ledger data is shown while the encrypted store is unavailable.
           </p>
         </div>
       </main>

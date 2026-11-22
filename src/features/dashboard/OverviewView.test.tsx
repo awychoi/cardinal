@@ -43,7 +43,7 @@ describe("OverviewView", () => {
     expect(screen.getByText("Cash on hand")).toBeInTheDocument();
     expect(screen.getByText("Available credit · USD")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Coming up" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "A quick read" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Summary" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Needs attention" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Gross spending by category/i })).toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /Monthly net spending/i })).toBeInTheDocument();
@@ -70,7 +70,7 @@ describe("OverviewView", () => {
     expect(within(hero).getAllByText(cards).length).toBeGreaterThan(0);
     // The quick read interprets the month instead of repeating the hero arithmetic.
     expect(
-      within(screen.getByRole("complementary", { name: "A quick read" })).getByText("Top category"),
+      within(screen.getByRole("complementary", { name: "Summary" })).getByText("Top category"),
     ).toBeInTheDocument();
   });
 
@@ -179,7 +179,7 @@ describe("OverviewView", () => {
     expect(screen.getByText("Eligible rows · USD")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Open connections" }));
     expect(onOpenSettings).toHaveBeenCalledOnce();
-    await user.click(screen.getByRole("button", { name: "Open ledger" }));
+    await user.click(screen.getByRole("button", { name: "View transactions" }));
     expect(onOpenTransactions).toHaveBeenCalledOnce();
   });
 
@@ -246,11 +246,11 @@ describe("OverviewView", () => {
   it("opens the deeper picture from the quick-read footer", async () => {
     const user = userEvent.setup();
     renderOverview();
-    expect(screen.getByText("Limits, connection health, and currencies")).toBeInTheDocument();
+    expect(screen.getByText("Limits, connections, and currencies")).toBeInTheDocument();
     const details = document.querySelector(".wealth-details") as HTMLDetailsElement;
     expect(details.open).toBe(false);
 
-    await user.click(screen.getByRole("button", { name: "The numbers behind this →" }));
+    await user.click(screen.getByRole("button", { name: "See the details →" }));
     expect(details.open).toBe(true);
   });
 
@@ -286,9 +286,7 @@ describe("OverviewView", () => {
     const dashboard = mockDashboard("demo", "2026-10");
     const empty = { ...dashboard, overview: { ...dashboard.overview, accounts: [] } };
     const { onAddAccount } = renderOverview("ledger", empty);
-    expect(
-      screen.getByRole("heading", { name: /Your accounts, in one quiet place/ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Add your first account/ })).toBeInTheDocument();
     screen.getByRole("button", { name: "Add account" }).click();
     expect(onAddAccount).toHaveBeenCalledOnce();
   });
@@ -325,7 +323,7 @@ describe("OverviewView", () => {
     expect(screen.getByText("Only other-currency accounts")).toBeInTheDocument();
     expect(screen.getByText("No USD accounts in your net position")).toBeInTheDocument();
     expect(screen.queryByText(/Known balances total \$0\.00/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Everything reported looks current")).not.toBeInTheDocument();
+    expect(screen.queryByText("All reported balances are up to date")).not.toBeInTheDocument();
     const cardMini = Array.from(hero.querySelectorAll<HTMLElement>(".hero-mini")).find(
       (element) => element.querySelector(".hero-mini-label")?.textContent === "Card balances",
     );
@@ -354,7 +352,7 @@ describe("OverviewView", () => {
     expect(
       screen.getByRole("button", { name: "Open activity for Euro Checking" }),
     ).toHaveAccessibleDescription(/outside USD totals/);
-    expect(screen.queryByText("Everything reported looks current")).not.toBeInTheDocument();
+    expect(screen.queryByText("All reported balances are up to date")).not.toBeInTheDocument();
   });
 
   it("separates all-excluded accounts from an empty ledger", () => {
@@ -373,7 +371,7 @@ describe("OverviewView", () => {
     expect(screen.getAllByText("All accounts are excluded from totals").length).toBeGreaterThan(0);
     expect(screen.queryByText("No accounts yet.")).not.toBeInTheDocument();
     expect(screen.queryByText("Known balances total $0.00")).not.toBeInTheDocument();
-    expect(screen.queryByText("Everything reported looks current")).not.toBeInTheDocument();
+    expect(screen.queryByText("All reported balances are up to date")).not.toBeInTheDocument();
     const hero = screen.getByRole("region", { name: "Net position" });
     expect(hero.querySelector(".hero-value")).toHaveTextContent("Not reported");
     expect(

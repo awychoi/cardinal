@@ -9,7 +9,7 @@ test.describe("read-only dashboard (browser mock)", () => {
     await expect(hero).toContainText("Cash on hand");
     await expect(hero).toContainText("Card balances");
     await expect(hero).toContainText("Available credit");
-    await expect(page.getByRole("heading", { name: "A quick read" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Coming up" })).toBeVisible();
     await expect(page.getByText("This month so far")).toBeVisible();
     await expect(page.getByRole("list", { name: "Spending by category" })).toBeVisible();
@@ -20,11 +20,11 @@ test.describe("read-only dashboard (browser mock)", () => {
     await page.locator(".wealth-details > summary").click();
     await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Credit utilization" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /October 2026 in numbers/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /October 2026 totals/ })).toBeVisible();
     await expect(page.getByRole("list", { name: "Utilization by card" })).toBeVisible();
   });
 
-  test("A quick read follows the light and dark theme", async ({ page }) => {
+  test("Summary follows the light and dark theme", async ({ page }) => {
     await openUnlocked(page);
     const quick = page.locator(".quick-read");
     const lightStyle = await quick.evaluate((element) => {

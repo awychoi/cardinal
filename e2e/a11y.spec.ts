@@ -108,7 +108,7 @@ test.describe("accessibility interactions (browser mock)", () => {
     await page.getByRole("button", { name: "Unlock vault" }).click();
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
 
-    await page.getByRole("button", { name: "The numbers behind this →" }).click();
+    await page.getByRole("button", { name: "See the details →" }).click();
     const summary = page.locator(".wealth-details > summary");
     await expect(summary).toBeFocused();
     const calls = await page.evaluate(

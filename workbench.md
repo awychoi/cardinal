@@ -8,7 +8,7 @@ note: >-
 banner: docs/design/app-arcade-overview-dark.png
 banner_alt: >-
   Cardinal overview in the Arcade theme, showing net position, cash and card balances, a
-  plain-language quick read, and upcoming payments for synthetic demo data.
+  plain-language summary, and upcoming payments for synthetic demo data.
 logo: src/assets/brand/cardinal-lockup-dark.svg
 logo_light: src/assets/brand/cardinal-lockup.svg
 back_focal: 27% 34%

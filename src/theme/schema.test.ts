@@ -105,8 +105,7 @@ describe("theme files", () => {
     const generated = {
       $schema: "https://json-schema.org/draft/2020-12/schema",
       title: "Cardinal theme",
-      description:
-        "Theme document for Cardinal. Regenerate with pnpm theme:schema.",
+      description: "Theme document for Cardinal. Regenerate with pnpm theme:schema.",
       ...z.toJSONSchema(themeSchema, { target: "draft-2020-12", io: "input" }),
     };
     const text = `${JSON.stringify(generated, null, 2)}\n`;

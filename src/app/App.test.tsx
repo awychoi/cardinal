@@ -117,7 +117,7 @@ describe("app shell", () => {
     expect(side).not.toHaveTextContent("No accounts yet");
     expect(side.querySelector(".side-net-value")).toHaveTextContent("—");
     expect(side.querySelector(".side-net-split")).not.toHaveTextContent("$0.00");
-    const sidebar = screen.getByRole("complementary", { name: "Wealth sidebar" });
+    const sidebar = screen.getByRole("complementary", { name: "Sidebar" });
     expect(within(sidebar).getByText("No cards tracked")).toBeInTheDocument();
   });
 
@@ -156,7 +156,7 @@ describe("app shell", () => {
     });
 
     await unlock();
-    const sidebar = screen.getByRole("complementary", { name: "Wealth sidebar" });
+    const sidebar = screen.getByRole("complementary", { name: "Sidebar" });
     expect(within(sidebar).getByText("No cash accounts")).toBeInTheDocument();
     expect(within(sidebar).queryByText("Not reported")).not.toBeInTheDocument();
   });
@@ -181,7 +181,7 @@ describe("app shell", () => {
     );
 
     await user.click(within(nav).getByRole("button", { name: "Overview" }));
-    await user.click(await screen.findByRole("button", { name: "The numbers behind this →" }));
+    await user.click(await screen.findByRole("button", { name: "See the details →" }));
     expect(screen.getByText("Pending rows · all currencies")).toBeInTheDocument();
     const allRows = screen.getByText("All rows · all currencies").closest("div") as HTMLElement;
     expect(allRows).toHaveTextContent(String(dashboard.summary.rowCount));
@@ -198,7 +198,7 @@ describe("app shell", () => {
     expect(await screen.findByText("Set your reporting timezone.")).toBeInTheDocument();
     expect(screen.getByText(/Detected from this Mac/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText("You are ready.")).toBeInTheDocument();
+    expect(await screen.findByText("You're all set.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Finish setup" }));
     expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
   });

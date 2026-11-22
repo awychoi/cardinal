@@ -1,22 +1,21 @@
-<img src="docs/design/cardinal-lockup-dark-panel.svg" alt="Cardinal — local-first, encrypted wealth manager for macOS" width="320">
+<img src="docs/design/cardinal-lockup-dark-panel.svg" alt="Cardinal — encrypted personal finance app for macOS" width="320">
 
-An open-source, local-first, encrypted wealth manager for macOS. It brings bank accounts and credit
-cards into one quiet, bank-first balance sheet, tracks calendar-month spending, and keeps everything
-on the Mac — no account, no cloud, no telemetry.
+An open-source, encrypted personal finance app for macOS. It brings bank accounts and credit cards
+into one bank-first balance sheet, tracks calendar-month spending, and keeps everything on the Mac —
+no account, no cloud, no telemetry.
 
 Built with Tauri 2, React, TypeScript, Rust, and SQLCipher.
 
 Early and experimental: interfaces and storage formats can change.
 
-![Cardinal overview in the Arcade theme, dark mode, showing net position, cash and card balances, a plain-language quick read, and upcoming card payments for synthetic demo data](docs/design/app-arcade-overview-dark.png)
+![Cardinal overview in the Arcade theme, dark mode, showing net position, cash and card balances, a plain-language summary, and upcoming card payments for synthetic demo data](docs/design/app-arcade-overview-dark.png)
 
 ## What it does
 
 - A bank-first balance sheet: cash, card debt, available credit, and a net position that stay current
   regardless of the month you're viewing.
-- A curated overview — net-position beam, plain-language quick read, payments coming up, category
-  mix, and a 12-month trend — with exact row counts, utilization, and connection health one
-  disclosure away.
+- An overview — net-position beam, plain-language summary, payments coming up, category mix, and a
+  12-month trend — with exact row counts, utilization, and connection health one disclosure away.
 - Calendar-month spending across credit cards and bank accounts, kept separate from statement cycles.
 - An encrypted ledger, unlocked with a passphrase typed into a native macOS sheet — never stored.
 - Plaid links credit and depository accounts. Manual bank accounts accept a point-in-time cash

@@ -8,7 +8,7 @@ test.describe("wealth view (browser mock)", () => {
 
     await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
     const summary = page.getByRole("region", { name: "Balance sheet summary" });
-    await expect(summary).toContainText("Cash you own");
+    await expect(summary).toContainText("Cash · USD");
     await expect(summary).toContainText("Card balances");
     await expect(summary).toContainText("Net position");
 
@@ -58,7 +58,7 @@ test.describe("wealth view (browser mock)", () => {
   test("deeper numbers stay one disclosure away", async ({ page }) => {
     await openUnlocked(page);
     const summary = page.locator(".wealth-details > summary");
-    await expect(summary).toContainText("The deeper picture");
+    await expect(summary).toContainText("More details");
     await expect(page.getByRole("heading", { name: "Needs attention" })).toHaveCount(0);
     await summary.click();
     await expect(page.getByRole("heading", { name: "Needs attention" })).toBeVisible();
@@ -114,7 +114,7 @@ test.describe("wealth view (browser mock)", () => {
     await page.getByRole("button", { name: "Unlock vault" }).click();
     await expect(page.getByText("Connect your bank.")).toBeVisible();
     await page.getByRole("button", { name: "Skip setup" }).click();
-    await expect(page.getByText("Your accounts, in one quiet place.")).toBeVisible();
+    await expect(page.getByText("Add your first account.")).toBeVisible();
     await page.getByRole("button", { name: "Add account" }).click();
     await page.getByRole("button", { name: "Add account manually" }).click();
     await page.getByLabel("Issuer").fill("Local Bank");

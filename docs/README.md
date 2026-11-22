@@ -1,27 +1,14 @@
 # Documentation
 
-User-facing guides for Cardinal.
-
-## Start here
+Cardinal's guides, kept deliberately short. Historical design boards, reviews, plans, and dated
+verification notes live in the local archive and Git history.
 
 | I want to… | Read |
-|---|---|
-| run, build, or package the app | [README.md](../README.md) |
-| understand the security posture | [SECURITY.md](../SECURITY.md), [security/architecture.md](security/architecture.md), [security/threat-model.md](security/threat-model.md), [security/assessment-2026-11-21.md](security/assessment-2026-11-21.md) |
-| respond to a security incident | [security/incident-runbook.md](security/incident-runbook.md) |
-| connect a bank with Plaid | [integrations/plaid-guide.md](integrations/plaid-guide.md) |
-| back up, restore, or rotate a vault | [operations/backup-recovery.md](operations/backup-recovery.md) |
+| --- | --- |
+| run, build, or package the app | [README](../README.md) |
+| understand the security posture | [SECURITY.md](../SECURITY.md) |
+| understand the internals | [ARCHITECTURE.md](../ARCHITECTURE.md) |
+| connect a bank with Plaid | [plaid.md](plaid.md) |
+| back up, restore, or rotate a vault | [backups.md](backups.md) |
 
-## Map
-
-| Folder | Contains |
-|---|---|
-| [`integrations/`](integrations) | Plaid setup and linking |
-| [`operations/`](operations) | Backup and recovery |
-| [`security/`](security) | Security architecture, threat model, incident runbook |
-| [`design/`](design) | App screenshots, the README header lockup, and the workbench banner |
-
-Plans, dated reviews, implementation logs, reference decisions, the data dictionary, the test
-plan, the older brand and theming boards, and local-signing notes are retired to the local,
-gitignored `archive/` folder. Code-hygiene tooling — CI, secret scanning, hooks, lint/format,
-tests, probes and release checks — stays in the repository.
+`design/` holds only the assets used by the README and the workbench page.

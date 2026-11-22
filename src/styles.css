@@ -9,7 +9,7 @@
  *
  * Themeable   : everything defined here and in src/themes/*.theme.json
  * Not themed  : data, copy, information architecture, security behavior
- * Authoring   : docs/design/theming.md
+ * Authoring   : edit src/themes/*.theme.json; no other file defines colors
  */
 :root {
   color-scheme: light;

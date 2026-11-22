@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Cardinal theme",
-  "description": "Theme document for Cardinal. See docs/design/theming.md. Regenerate with pnpm theme:schema.",
+  "description": "Theme document for Cardinal. Regenerate with pnpm theme:schema.",
   "type": "object",
   "properties": {
     "$schema": {

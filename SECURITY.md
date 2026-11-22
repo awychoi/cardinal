@@ -1,107 +1,127 @@
-# Security policy and incident runbook: Cardinal
+# Security: Cardinal
 
-Cardinal is a local, single-user, encrypted macOS app. It is not a hosted service and has no server component. This document states what the app protects, what it does not, and what to do when something goes wrong.
+Cardinal is a local, single-user, encrypted macOS app with no server, account service, or telemetry.
+This page states what it protects, what it does not, and what to do if something goes wrong.
 
-**No system is watertight.** This is a locally built app whose executable is linker-signed ad hoc
-and whose bundle is not signed by default, on a general-purpose operating system. Read the residual
-risks in §7 before relying on it.
+**Not distribution-ready.** The executable is linker-signed ad hoc, the app bundle is not signed or
+notarized, and there is no hardened runtime or App Sandbox. Use it on a Mac you control, with
+FileVault on.
 
-## 1. What protects the data
+## What protects the data
 
 | Control | Implementation |
 | --- | --- |
-| Encryption at rest | SQLCipher (4.x) opened with a random 256-bit raw key; database and WAL are ciphertext |
-| Key hierarchy | Argon2id-derived KEK wraps the DEK with XChaCha20-Poly1305; wrapped DEK lives in an authenticated external header |
-| Passphrase entry | Native AppKit `NSSecureTextField` sheet; the renderer never receives the passphrase |
-| Renderer boundary | One Tauri window, one capability, typed command gateway, strict CSP with no HTTPS source, blocked navigation/new windows, devtools off |
-| Lock lifecycle | Manual Lock Now, screen lock, sleep, fast user switching, quit, and idle timeout (default 15 minutes) close the DB and zeroize the DEK. Visible-screen clearing is a renderer event, not a native guarantee. |
-| Provider secrets | macOS login Keychain (file-based, non-synchronizable, code-signature ACL); never in the ledger, backups, exports, logs, or renderer. The `WhenUnlockedThisDeviceOnly` attribute is set but is not what protects the item — see architecture §8. |
-| Backups | Self-contained authenticated containers (encrypted DB + wrapped DEK header); restore always asks for the passphrase |
-| Files | 0700 directories, 0600 files, symlink rejection, atomic writes |
-| Network | Rust-only client, TLS verification, HTTPS-only, no redirects, exact `sandbox.plaid.com`/`production.plaid.com` allowlist, response caps; the renderer has no network source at all |
-| Audit trail | Encrypted `security_events` (unlock failures recorded on the next successful unlock, lock, backup, restore success, export, rekey, credential changes). Owner-monitoring only; not tamper-evident, and some declared event types are not emitted today. |
-| Repository hygiene | gitleaks pre-commit + full-history CI; default vault/backup/export and key/credential patterns refused even if force-added; some internal rotation artifacts are not yet covered (see assessment F11) |
+| Encryption at rest | SQLCipher with a random 256-bit key; the database and WAL are ciphertext |
+| Key handling | An Argon2id-derived KEK wraps the data key with XChaCha20-Poly1305; the wrapped key and KDF metadata live in an authenticated header outside the database |
+| Passphrase | Collected in a native AppKit secure sheet; never stored, logged, sent over IPC, or shown to the renderer |
+| Renderer boundary | One window, one capability, one typed command gateway, strict CSP with no remote sources, blocked navigation and new windows; the renderer is treated as untrusted |
+| Lock | Manual lock, screen lock, sleep, fast user switching, quit, and an idle timeout close the database and zeroize the key. Clearing the visible screen depends on a renderer event and is best effort. |
+| Provider secrets | Plaid client credentials and Item tokens live in the login Keychain, never in the ledger, backups, exports, logs, or renderer. The login Keychain's lock state and the code-signature ACL are the effective protection; the `WhenUnlockedThisDeviceOnly` attribute is set but is not what protects the item. |
+| Backups | Self-contained encrypted containers with their own header; restore always asks for the passphrase |
+| Files | `0700` directories, `0600` files, symlink rejection, atomic writes |
+| Network | Rust-only client with TLS verification, HTTPS only, no redirects, an exact Plaid host allowlist, and response caps; the renderer has no network source |
+| Audit trail | Encrypted security events for unlock failures, lock, backup, restore, export, rekey, and credential changes. Owner monitoring only; not tamper-evident, and not every declared event type is emitted. |
+| Repository hygiene | gitleaks pre-commit hook and full-history CI; app vault, backup, export, and key/credential patterns are refused even if force-added; some internal rotation artifacts are not yet covered |
 
-## 2. What the app does not protect against
+## What it does not protect
 
-- A compromised macOS account or root/kernel attacker can read the unlocked process. `mlock` and zeroization are best-effort.
-- Screen capture is not preventable. Content protection (`NSWindowSharingType.None`) is best-effort; on macOS 15.4+ ScreenCaptureKit-based capture can ignore it. Cameras, remote-support tools, or a compromised window server are not covered.
-- A weak or reused passphrase defeats Argon2id. A lost passphrase and lost header are unrecoverable without a backup whose passphrase is known.
-- Old backups remain decryptable with the old passphrase after a rotation until deleted.
-- Exported CSV is plaintext once written. Cloud sync/copies are outside the app.
-- A compromised renderer can still invoke allowed commands and ask the user to unlock; native input prevents silent passphrase capture, not post-unlock abuse.
-- TLS uses rustls with bundled WebPKI roots and `no_proxy`, not the macOS trust store or system proxy; there is no certificate pinning.
-- A full rollback of both `vault.header` and the database to an older consistent pair is not detectable without external monotonic state.
-- Hosted Link places a short-lived bearer URL in the default browser; browser history/extensions are outside the app's control.
-- Crypto-erasure is logical, not physical. SSD wear-leveling and copies outside the app remain.
-- There is no auto-update, notarization, hardened runtime, App Sandbox, hardware-backed key, Touch ID unlock, or MFA.
-- The default `pnpm tauri:build` output is linker-signed but not bundle-signed: `codesign --verify --deep --strict` fails until the bundle is signed. See the [2026-11-21 assessment](docs/security/assessment-2026-11-21.md).
+- A compromised macOS account, root or kernel attacker, or malware running as you can read the
+  unlocked process and its files. `mlock` and zeroization are best effort.
+- Screen capture is not preventable. Content protection is best effort and can be bypassed by modern
+  capture tools, cameras, or remote-support software.
+- A weak or reused passphrase defeats Argon2id. A lost passphrase cannot be recovered.
+- Old backups and old key material remain decryptable with the old passphrase after a rotation until
+  you delete them.
+- Plaintext CSV exports and copies outside the app are unprotected.
+- A compromised renderer can invoke allowed commands, read data already displayed, and ask you to
+  unlock. Native input prevents silent passphrase capture, not post-unlock abuse.
+- A compromised Plaid or bank, physical memory attacks, a coerced owner, and macOS/WebKit zero-days
+  are out of scope.
+- TLS uses bundled roots, not the macOS trust store, and has no certificate pinning. A full rollback
+  of both the header and database is not detectable.
+- Hosted Link places a short-lived bearer URL in your browser; browser history and extensions are
+  outside the app's control.
+- Crypto-erasure is logical, not physical. SSD copies and external backups remain.
+- There is no auto-update, notarization, hardened runtime, App Sandbox, hardware-backed key, Touch ID
+  unlock, or MFA.
+- The default build is not bundle-signed; `codesign --verify --deep --strict` fails until you sign it.
 
-The architecture is in [security architecture](docs/security/architecture.md). The retired design
-review and decision log are preserved in the local archive and Git history.
+## Reporting a security issue
 
-## 3. Reporting a security issue
+Report privately to the owner through the same trusted channel used for the app. Do not open a public
+issue containing ledger data or credentials. Never send the passphrase, a backup, an exported CSV, an
+access token, or the Plaid client secret. There is no bug bounty and no guaranteed response time.
 
-This is a personal application owned by one user. Report issues privately to the owner through the same trusted channel used for the app; do not open a public issue containing ledger data or credentials. **Never send the vault passphrase, a backup, an exported CSV, an access token, or the Plaid client secret.** A useful report includes the app version, the security event type, and a sanitized description. There is no bug-bounty program and no guaranteed response time.
+## If something goes wrong
 
-## 4. Incident runbook
+### Passphrase may be compromised
 
-### Suspected passphrase compromise (someone may know it)
-1. Unlock the app and use **Settings → Security → Change passphrase** (native sheet). This generates a new DEK, rekeys the live database, and writes a new header.
-2. Verify the old passphrase now fails. Make a fresh encrypted backup.
-3. Delete old backups that used the old passphrase (they remain decryptable with it). Use the explicit delete action; never assume rotation removed them.
-4. If Plaid is connected, revoke the affected Items in the Plaid dashboard and relink; rotate the Plaid client secret.
-5. Review recent security events in Settings.
+1. Unlock and use **Settings → Lock & idle → Change passphrase…**. This creates a new data key,
+   rekeys the live database, and writes a new header.
+2. Confirm the old passphrase now fails, then make a fresh encrypted backup.
+3. Delete old backups that still open with the old passphrase, plus the vault directory's
+   `pre-rekey-*` files and older `pre-migration-*` snapshots. Rotation does not remove them.
+4. Treat any plaintext CSV exports as compromised and delete them.
+5. If Plaid is connected, revoke the affected Items in the Plaid dashboard, relink, and rotate the
+   client secret.
+6. Review recent security events in Settings.
 
-### Suspected access-token or client-secret leak
-1. Disconnect the provider in the app (deletes the Keychain item), or use **Remove all provider credentials**.
-2. Revoke the Item or rotate the client secret in the Plaid dashboard (owner action).
-3. Relink. Do not reuse the old token or secret.
-4. The offline ledger remains usable.
+### Token or client secret leaked
 
-### Lost or stolen Mac
-1. Rely on FileVault and the vault passphrase for data at rest. The app cannot wipe the device remotely.
-2. Revoke Plaid Items from another device; change the ledger passphrase when you regain access.
-3. Assume any unlocked session was exposed. There is no remote-wipe claim.
+1. Disconnect the provider in the app, or use **Remove all provider credentials**.
+2. Revoke the Item or rotate the client secret in the Plaid dashboard.
+3. Relink with fresh credentials. The offline ledger remains usable.
 
-### Lost or stolen backup/export
-1. Treat the passphrase as compromised if it was weak or reused. Rotate the vault passphrase and delete old backups.
-2. A plaintext CSV export requires account monitoring; the app cannot revoke it.
-3. Rotate provider credentials if the backup could contain them (it should not; backups exclude Keychain material).
+### Mac or backup lost or stolen
 
-### Corrupt database or failed migration
-1. Do not run repair tools on the only copy. Preserve the vault directory for forensics.
-2. Restore from the newest verified encrypted backup using the native file picker and passphrase sheet. Restore supports same-vault, cross-vault, and fresh-install recovery, plus a destructive full-database path when the current passphrase is unavailable.
-3. A failed restore leaves the current database intact by design. If the app cannot unlock, the header may be damaged; try the mirrored header only through the app, never by hand-editing.
-4. If both header copies are lost, the ledger cannot be opened in place even if the DB file survives. Restore a self-contained backup from the locked gate: the backup carries its own header and vault identity. A fresh install can create a new vault directly from the backup. Preserve the app-data vault directory and follow the [backup guide](docs/operations/backup-recovery.md).
+1. Rely on FileVault and the vault passphrase for data at rest. The app cannot wipe the device
+   remotely.
+2. Revoke Plaid Items from another device and change the vault passphrase when you regain access.
+3. Assume any unlocked session was exposed. Treat a stolen backup or plaintext export as compromised:
+   rotate the passphrase and delete old backups. A CSV export requires account monitoring.
 
-### Failed rekey
-The rotation journal and a pre-change encrypted backup exist. Relaunch and unlock with the new passphrase if the rekey completed; if not, unlock with the old passphrase and retry. If neither works, restore the pre-change backup. Do not delete the journal manually before trying unlock.
+### Passphrase lost
+
+There is no recovery. A self-contained backup restores access only if its passphrase is known. No
+reset, escrow, support override, or hidden account exists.
+
+### Database corrupt or unlock fails
+
+1. Do not run repair tools on the only copy. Preserve the vault directory.
+2. Restore the newest verified backup. If the app cannot unlock, use **Restore from backup…** on the
+   locked gate.
+3. If both header copies are lost, the ledger cannot be opened in place even if the database
+   survives. Restore a self-contained backup; a fresh install can create a vault directly from it.
+
+### App crashes on launch
+
+Preserve the app data and check the local console for non-sensitive messages. Rebuild from the
+recorded source and SHA-256. Do not disable vault checks or run a modified binary.
+
+### Restore or rotation failed
+
+A failed restore leaves the live ledger untouched by design; use the `pre-restore` backup if a
+post-swap failure is reported. A failed rotation has a journal and a `pre-change` backup: try the new
+passphrase if the rekey completed, otherwise the old one, then restore the backup. Do not edit or
+delete the journal by hand before trying unlock.
 
 ### Compromised dependency or build
-1. Stop using the artifact. Rebuild from a clean checkout with the lockfiles, run `cargo audit`, `cargo deny check`, `pnpm audit`, and compare the new SHA-256.
-2. Rotate the vault passphrase, provider credentials, and any exported files' handling assumptions.
-3. Review security events and network/export history.
 
-### Lost passphrase
-There is no recovery. A self-contained backup restores access only if its passphrase is known. It can be restored into an existing vault or a fresh install. Do not ask anyone to "reset" the vault; no such mechanism exists by design.
+Stop using the artifact. Rebuild from a clean checkout with the lockfiles, run `cargo audit`,
+`cargo deny check`, and `pnpm audit`, and compare the new SHA-256. Rotate the vault passphrase and
+provider credentials.
 
-## 5. Operational expectations
+## Operational expectations
 
-- Keep macOS and Xcode command-line tools patched. SQLCipher, SQLite, WebKit, and Rust dependency vulnerabilities are inherited.
+- Keep macOS and the Xcode command-line tools patched.
 - Enable FileVault and a short screen-lock timeout.
-- Keep the passphrase in a password manager, not in chat, the repository, an environment file, or notes stored with the backups.
+- Keep the passphrase in a password manager, not in chat, the repository, an environment file, or
+  notes stored with backups.
+- Use **Lock Now** before leaving. Hiding the window is not a lock.
 - Verify the artifact SHA-256 before running a rebuilt app.
-- Use **Lock Now** before leaving the Mac. Hiding the window is not a lock.
-- Expect scheduled sync to skip while locked and to record `skipped: vault locked`.
 
-## 6. Verification status
+## Verification
 
-Security claims are verified only where tests or manual evidence exist. Tracked test tooling
-exercises the Rust integration paths and the browser renderer; embedded Rust unit tests remain in
-the source. Browser tests do not prove native Tauri or macOS behavior. Historical evidence is in
-the local archive.
-
-## 7. Residual risks (summary)
-
-See §2. The app is best described as a local, encrypted, single-user application with documented limits — not "watertight", "unhackable", or "military-grade", and not distribution-ready.
+The security claims are backed by Rust integration tests and browser tests where applicable. Browser
+tests do not prove native Tauri or macOS behavior; native sheets, Keychain prompts, screen lock, and
+sleep should be checked on the machine you use.
